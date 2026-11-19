@@ -48,6 +48,10 @@ add it on Render as `GEMINI_API_KEY`. No card needed.
 - Optional settings: `GEMINI_MODEL` (default `gemini-3.8-flash`), `GEMINI_FALLBACK_MODEL` (default: picked automatically),
   `GEMINI_THINKING` = `LOW` (default, faster), `MINIMAL` (fastest) or `OFF`.
 
+**Free backup (recommended with Gemini):** https://console.groq.com/keys → sign in → **Create API Key** →
+add it on Render as `GROQ_API_KEY`. When Gemini is busy, the app answers with Groq instead.
+Optional: `GROQ_MODEL` (default `openai/gpt-oss-120b,openai/gpt-oss-20b`, tried in order).
+
 **Paid, best quality:** create a key at https://platform.claude.com and add it as `ANTHROPIC_API_KEY`
 (roughly 1–3 US cents per answer). If both keys are set, Claude is used.
 
@@ -78,7 +82,7 @@ FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:808
 | File | What it does |
 |---|---|
 | `server.js` | Web server: daily limit, Stripe checkout & webhook |
-| `guide.js` | The AI guide (Gemini free / Claude paid) and its instructions |
+| `guide.js` | The AI guide (Gemini + Groq free / Claude paid) and its instructions |
 | `verses.js` | The curated Upanishad verse library: add more verses here |
 | `store.js` | Firebase: checks sign-ins, stores users and usage in Firestore |
 | `client/firebase-auth.js` | Browser sign-in code (Google, email, password reset); built into `public/` on `npm install` |

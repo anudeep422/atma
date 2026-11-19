@@ -1,17 +1,23 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
+import Groq from "groq-sdk";
 import { VERSES, VERSE_BY_ID } from "./verses.js";
 
-// Which AI answers questions (first one with a key wins):
-//   ANTHROPIC_API_KEY -> Claude (paid, best quality)
-//   GEMINI_API_KEY    -> Google Gemini (has a free tier)
-//   neither           -> demo answers
+// Which AI answers questions:
+//   ANTHROPIC_API_KEY -> Claude (paid, best quality); used alone when set
+//   GEMINI_API_KEY    -> Google Gemini (free tier), tried first
+//   GROQ_API_KEY      -> Groq (free tier), backup when Gemini is busy or fails
+//   none              -> demo answers
 const CLAUDE_MODEL = "claude-opus-5-5";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 const claude = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
 const gemini = !claude && process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
+const GROQ_MODELS = (process.env.GROQ_MODEL || "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",").map((m) => m.trim());
+const groq = !claude && process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY, maxRetries: 1 }) : null;
 
-export const AI_PROVIDER = claude ? `Claude (${CLAUDE_MODEL})` : gemini ? `Gemini (${GEMINI_MODEL}, free tier)` : null;
+export const AI_PROVIDER = claude
+  ? `Claude (${CLAUDE_MODEL})`
+  : [gemini && `Gemini (${GEMINI_MODEL}, free tier)`, groq && `Groq (${GROQ_MODELS[0]}, free tier)`].filter(Boolean).join(" + backup ") || null;
 
 /** Thrown when the AI is rate-limited (e.g. Gemini free-tier daily/minute limits). */
 export class GuideBusyError extends Error {}
@@ -73,14 +79,30 @@ export async function askGuide(question, history = [], lang = "en") {
   const note = `(App note: ${LANGUAGE_NOTE[lang] ?? LANGUAGE_NOTE.en})`;
   let raw;
   if (claude) raw = await askClaude(question, history, note);
-  else if (gemini) raw = await askGemini(question, history, note);
+  else if (gemini) {
+    try {
+      raw = await askGemini(question, history, note);
+    } catch (err) {
+      if (!groq) throw err;
+      console.warn("Gemini unavailable, using Groq backup");
+      try {
+        raw = await askGroq(question, history, note);
+      } catch (groqErr) {
+        const both = groqErr instanceof GuideBusyError ? groqErr : err;
+        both.detail = `${err.detail ?? describeAiError(err)} || Groq: ${groqErr.detail ?? describeAiError(groqErr)}`;
+        throw both;
+      }
+    }
+  } else if (groq) raw = await askGroq(question, history, note);
   else return demoAnswer(question, lang);
 
   if (raw === null) return declined(lang);
 
   let parsed;
   try {
-    parsed = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, ""));
+    const cleaned = raw.replace(/^```(?:json)?\s*|\s*```$/g, "");
+    const firstBrace = cleaned.indexOf("{"), lastBrace = cleaned.lastIndexOf("}");
+    parsed = JSON.parse(firstBrace >= 0 ? cleaned.slice(firstBrace, lastBrace + 1) : cleaned);
   } catch {
     throw new Error("Guide returned unparseable output");
   }
@@ -168,7 +190,8 @@ async function askGemini(question, history, note) {
     { role: "user", parts: [{ text: question }, { text: note }] },
   ];
   // Plan: main model -> backup (lighter) model -> main model again after a short pause.
-  const attempts = [GEMINI_MODEL, "backup", GEMINI_MODEL];
+  // (With a Groq backup available, skip the slow third try and hand over to Groq sooner.)
+  const attempts = groq ? [GEMINI_MODEL, "backup"] : [GEMINI_MODEL, "backup", GEMINI_MODEL];
   let lastErr;
   const tried = [];
   for (let i = 0; i < attempts.length; i++) {
@@ -190,6 +213,42 @@ async function askGemini(question, history, note) {
   const busy = new GuideBusyError(String(lastErr?.message));
   busy.detail = (tried.length ? tried : ["no backup model found"]).join(" | ");
   throw busy;
+}
+
+// Groq (free tier, OpenAI-style API). Tries each model in GROQ_MODELS.
+const GROQ_JSON_RULES = `
+
+OUTPUT FORMAT: reply with ONLY a JSON object, no other text:
+{"answer": "<your answer>", "verse_ids": ["<id from the VERSE LIBRARY>"]}`;
+
+async function askGroq(question, history, note) {
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT + GROQ_JSON_RULES },
+    ...history.slice(-6),
+    { role: "user", content: `${question}\n\n${note}` },
+  ];
+  const tried = [];
+  let busy = true;
+  for (const model of GROQ_MODELS) {
+    try {
+      const started = Date.now();
+      const completion = await groq.chat.completions.create({
+        model,
+        messages,
+        response_format: { type: "json_object" },
+        max_completion_tokens: 4000,
+      });
+      console.log(`Groq answered with ${model} in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+      return completion.choices[0]?.message?.content || null;
+    } catch (err) {
+      tried.push(`${model}: ${describeAiError(err)}`);
+      console.warn(`Groq ${model} failed: status=${err?.status} ${String(err?.message).slice(0, 300)}`);
+      if (!(err?.status === 429 || err?.status >= 500)) busy = false;
+    }
+  }
+  const e = busy ? new GuideBusyError("Groq busy") : new Error("Groq failed");
+  e.detail = tried.join(" | ");
+  throw e;
 }
 
 function declined(lang) {
