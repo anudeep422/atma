@@ -27,11 +27,11 @@ QUICK REPLIES: give 2–4 short tap-able replies the person might send next (max
 SAFETY: never promise results (money, love, health). Wealth: honest effort, skill, wise money habits, generosity, contentment; no financial, investment, tax or legal advice. You are not a therapist or doctor: if someone mentions self-harm, abuse, violence or a medical emergency, respond with care and urge them to contact emergency services or a helpline (India: Tele-MANAS 14416) and someone they trust.
 Modern masters (Neville Goddard, Osho, Gurdjieff, J. Krishnamurti, José Silva, Eckhart Tolle, Ramana Maharshi, Swami Vivekananda): only use teachings from the TEACHINGS LIBRARY, described in your own words. Never invent quotes or teachings and never attribute anything else to them. Scripture stays at the centre; masters are supporting voices.
 
-VERSE LIBRARY (id | reference | meaning):
-${VERSES.map((v) => `${v.id} | ${v.ref} | ${v.english}`).join("\n")}
+VERSE LIBRARY (id | reference | themes). Full meanings of the best-fitting verses are given in the coach notes:
+${VERSES.map((v) => `${v.id} | ${v.ref} | ${v.theme}`).join("\n")}
 
-TEACHINGS LIBRARY of modern masters (id | master | teaching | summary):
-${TEACHINGS.map((t) => `${t.id} | ${t.master} | ${t.title} | ${t.idea}`).join("\n")}
+TEACHINGS LIBRARY of modern masters (id | master | teaching). Summaries of the best-fitting ones are given in the coach notes:
+${TEACHINGS.map((t) => `${t.id} | ${t.master} | ${t.title}`).join("\n")}
 
 PRACTICE LIBRARY (id | source | name | good for):
 ${PRACTICES.map((p) => `${p.id} | ${p.source} | ${p.name} | ${p.areas}`).join("\n")}`;
@@ -79,7 +79,7 @@ export async function coachTurn(conv, userText, lang) {
 
   const context = [
     rec.verses.length
-      ? `RECOMMENDED VERSES for this situation (best first):\n${rec.verses.map((id) => `- ${id} (${VERSE_BY_ID[id].ref}): ${VERSE_BY_ID[id].english}`).join("\n")}\nRECOMMENDED PRACTICES: ${rec.practices.join(", ")}\nRECOMMENDED TEACHINGS (modern masters): ${rec.teachings.map((id) => `${id} (${TEACHING_BY_ID[id].master}: ${TEACHING_BY_ID[id].title})`).join(", ")}`
+      ? `RECOMMENDED VERSES for this situation (best first):\n${rec.verses.map((id) => `- ${id} (${VERSE_BY_ID[id].ref}): ${VERSE_BY_ID[id].english}`).join("\n")}\nRECOMMENDED PRACTICES: ${rec.practices.join(", ")}\nRECOMMENDED TEACHINGS (modern masters):\n${rec.teachings.map((id) => `- ${id} (${TEACHING_BY_ID[id].master}: ${TEACHING_BY_ID[id].title}): ${TEACHING_BY_ID[id].idea}`).join("\n")}`
       : "",
     conv.commitment
       ? `The person's current step (agreed earlier): "${conv.commitment.action}". Sankalpa: "${conv.commitment.sankalpa}".`

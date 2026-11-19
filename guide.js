@@ -51,8 +51,8 @@ How to answer:
 VERSE LIBRARY (id | reference | themes | meaning):
 ${VERSES.map((v) => `${v.id} | ${v.ref} | ${v.theme} | ${v.english}`).join("\n")}
 
-TEACHINGS LIBRARY of modern masters (id | master | teaching | summary):
-${TEACHINGS.map((t) => `${t.id} | ${t.master} | ${t.title} | ${t.idea}`).join("\n")}`;
+TEACHINGS LIBRARY of modern masters (id | master | teaching). Summaries of the recommended ones are given with the question:
+${TEACHINGS.map((t) => `${t.id} | ${t.master} | ${t.title}`).join("\n")}`;
 
 const OUTPUT_SCHEMA = {
   type: "object",
@@ -93,7 +93,7 @@ export async function askGuide(question, history = [], lang = "en") {
   const rec = recommendations(topics);
   const schema = rec.verses.length && isStrongMatch(topics) ? withVerseChoices(OUTPUT_SCHEMA, rec.verses) : OUTPUT_SCHEMA;
   const prompt = rec.verses.length
-    ? `${question}\n\n(RECOMMENDED VERSES for this situation, best first: ${rec.verses.map((id) => `${id} (${VERSE_BY_ID[id].ref})`).join(", ")}. RECOMMENDED TEACHINGS: ${rec.teachings.map((id) => `${id} (${TEACHING_BY_ID[id].master})`).join(", ")})`
+    ? `${question}\n\n(RECOMMENDED VERSES for this situation, best first: ${rec.verses.map((id) => `${id} (${VERSE_BY_ID[id].ref})`).join(", ")}. RECOMMENDED TEACHINGS: ${rec.teachings.map((id) => `${id} (${TEACHING_BY_ID[id].master}: ${TEACHING_BY_ID[id].idea})`).join("; ")})`
     : question;
   const topicIds = topics.map((t) => t.id);
 
@@ -280,8 +280,19 @@ async function askGemini(spec, question, history, note, lang) {
 // Groq (free tier, OpenAI-style API). Tries each model in GROQ_MODELS.
 const groqJsonRules = (schema) => `
 
-OUTPUT FORMAT: reply with ONLY a JSON object (no other text) that matches this JSON schema:
-${JSON.stringify(geminiSchema(schema))}`;
+OUTPUT FORMAT: reply with ONLY a JSON object (no other text) that matches this JSON schema (ids must come from the libraries above):
+${JSON.stringify(withoutEnums(geminiSchema(schema)))}`;
+
+// Long id lists make Groq requests too big for its free tier; the ids are already listed in the prompt.
+function withoutEnums(schema) {
+  if (Array.isArray(schema)) return schema.map(withoutEnums);
+  if (schema && typeof schema === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(schema)) if (k !== "enum" || v.length <= 12) out[k] = withoutEnums(v);
+    return out;
+  }
+  return schema;
+}
 
 const GROQ_TELUGU_RULES = `
 
@@ -308,7 +319,7 @@ async function askGroq(spec, question, history, note, lang) {
         model,
         messages,
         response_format: { type: "json_object" },
-        max_completion_tokens: 4000,
+        max_completion_tokens: 2500,
       });
       console.log(`Groq answered with ${model} in ${((Date.now() - started) / 1000).toFixed(1)}s`);
       return completion.choices[0]?.message?.content || null;

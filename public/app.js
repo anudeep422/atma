@@ -409,7 +409,7 @@ async function sendCoach(text) {
     thinking.remove();
     $("coach-chat").lastElementChild?.remove(); // the unsent user bubble
     $("coach-input").value = text;
-    $("coach-error").textContent = errorText(data);
+    $("coach-error").textContent = errorText(data) + (data.detail && params.has("debug") ? ` (Reason: ${data.detail})` : "");
     renderCoach(false);
     return;
   }
