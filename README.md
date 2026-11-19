@@ -37,11 +37,16 @@ Without Claude/Stripe keys the guide gives sample answers and upgrades are free 
 6. After deploying: **Authentication → Settings → Authorized domains → Add domain** → your Render domain
    (e.g. `atma-xxxx.onrender.com`), otherwise Google sign-in is blocked.
 
-### 2. Claude API key (for real answers)
-- Sign up at https://platform.claude.com, add billing, and create an API key.
-- Put it in `.env` as `ANTHROPIC_API_KEY=...`
-- Cost: roughly 1–3 US cents per answer. A subscriber asking ~2 questions a day costs ~$1–2/month, against $4.99 of revenue.
-  If you need to cut costs later, switch `MODEL` in `guide.js` to a cheaper model.
+### 2. AI answers: free with Gemini, or paid with Claude
+**Free (start here):** https://aistudio.google.com/apikey → sign in with Google → **Create API key** →
+add it on Render as `GEMINI_API_KEY`. No card needed.
+- The free tier has daily/per-minute limits; when hit, users see "busy, try again in a minute".
+- On the free tier Google may use prompts to improve its products. Mention this in your privacy policy,
+  and switch to a paid tier (or Claude) once you have paying subscribers.
+- Optional: `GEMINI_MODEL` to choose a different Gemini model (default `gemini-3.8-flash`).
+
+**Paid, best quality:** create a key at https://platform.claude.com and add it as `ANTHROPIC_API_KEY`
+(roughly 1–3 US cents per answer). If both keys are set, Claude is used.
 
 ### 3. Stripe (to get paid)
 1. Create an account at https://stripe.com (Stripe India is available, or use a supported country).
@@ -56,7 +61,7 @@ Without Claude/Stripe keys the guide gives sample answers and upgrades are free 
 ### 4. Put it online (Render, auto-deploys from GitHub)
 1. https://render.com → sign in with GitHub → **New → Web Service** → pick this repo.
 2. Build command: `npm install` · Start command: `npm start` · Instance: Free.
-3. Environment: add `FIREBASE_SERVICE_ACCOUNT`, `ANTHROPIC_API_KEY`, the 3 Stripe values,
+3. Environment: add `FIREBASE_SERVICE_ACCOUNT`, `GEMINI_API_KEY` (or `ANTHROPIC_API_KEY`), the 3 Stripe values,
    `APP_URL=https://your-app.onrender.com`, and finally `NODE_ENV=production`.
 4. Every push to the `main` branch on GitHub redeploys the site automatically.
 
@@ -70,7 +75,7 @@ FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:808
 | File | What it does |
 |---|---|
 | `server.js` | Web server: daily limit, Stripe checkout & webhook |
-| `guide.js` | The AI guide (Claude) and its instructions |
+| `guide.js` | The AI guide (Gemini free / Claude paid) and its instructions |
 | `verses.js` | The curated Upanishad verse library: add more verses here |
 | `store.js` | Firebase: checks sign-ins, stores users and usage in Firestore |
 | `client/firebase-auth.js` | Browser sign-in code (Google, email, password reset); built into `public/` on `npm install` |

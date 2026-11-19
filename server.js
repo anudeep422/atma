@@ -1,9 +1,8 @@
 import express from "express";
 import { readFileSync } from "node:fs";
 import Stripe from "stripe";
-import Anthropic from "@anthropic-ai/sdk";
 import * as store from "./store.js";
-import { askGuide } from "./guide.js";
+import { askGuide, GuideBusyError, AI_PROVIDER } from "./guide.js";
 import { verseOfTheDay } from "./verses.js";
 
 const PORT = Number(process.env.PORT || 3000);
@@ -98,7 +97,7 @@ app.post("/api/ask", requireUser, async (req, res) => {
     await store.recordQuestion(req.user.id);
     res.json({ ...result, me: await publicUser(req.user) });
   } catch (err) {
-    if (err instanceof Anthropic.RateLimitError) {
+    if (err instanceof GuideBusyError) {
       return res.status(503).json({ error: "The guide is busy right now. Please try again in a minute.", code: "busy" });
     }
     console.error("askGuide failed:", err);
@@ -136,7 +135,7 @@ app.post("/api/billing-portal", requireUser, async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Atma running at ${APP_URL}`);
-  console.log(`  AI guide: ${process.env.ANTHROPIC_API_KEY ? "Claude (live)" : "DEMO mode (set ANTHROPIC_API_KEY)"}`);
+  console.log(`  AI guide: ${AI_PROVIDER ?? "DEMO mode (set GEMINI_API_KEY for free AI answers)"}`);
   console.log(`  Payments: ${stripe ? "Stripe" : ONLINE ? "NOT SET UP (upgrade button shows 'coming soon')" : "DEMO mode (set STRIPE_SECRET_KEY)"}`);
   console.log(`  Accounts: ${store.firebaseEmulator ? "Firebase EMULATOR" : store.firebaseReady ? "Firebase" : "NOT CONFIGURED (set FIREBASE_SERVICE_ACCOUNT)"}`);
 });

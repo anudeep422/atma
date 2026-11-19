@@ -1,9 +1,20 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import { VERSES, VERSE_BY_ID } from "./verses.js";
 
-const MODEL = "claude-opus-5-5";
-const hasClaude = Boolean(process.env.ANTHROPIC_API_KEY);
-const client = hasClaude ? new Anthropic() : null;
+// Which AI answers questions (first one with a key wins):
+//   ANTHROPIC_API_KEY -> Claude (paid, best quality)
+//   GEMINI_API_KEY    -> Google Gemini (has a free tier)
+//   neither           -> demo answers
+const CLAUDE_MODEL = "claude-opus-5-5";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+const claude = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
+const gemini = !claude && process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
+
+export const AI_PROVIDER = claude ? `Claude (${CLAUDE_MODEL})` : gemini ? `Gemini (${GEMINI_MODEL}, free tier)` : null;
+
+/** Thrown when the AI is rate-limited (e.g. Gemini free-tier daily/minute limits). */
+export class GuideBusyError extends Error {}
 
 // Kept byte-identical between requests so prompt caching works.
 const SYSTEM_PROMPT = `You are Atma, a warm and wise spiritual guide rooted in the Upanishads.
@@ -34,6 +45,12 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
+const GEMINI_SCHEMA = {
+  type: "object",
+  properties: OUTPUT_SCHEMA.properties,
+  required: OUTPUT_SCHEMA.required,
+};
+
 const LANGUAGE_NOTE = {
   te: "Write the \"answer\" in simple, warm, natural Telugu (Telugu script), the way a respected elder would speak. Keep well-known Sanskrit terms (ఆత్మ, బ్రహ్మం, ధర్మం) as Telugu speakers normally use them.",
   en: "Write the \"answer\" in English.",
@@ -46,59 +63,85 @@ const LANGUAGE_NOTE = {
  * @returns {Promise<{answer: string, verses: object[], demo?: boolean}>}
  */
 export async function askGuide(question, history = [], lang = "en") {
-  if (!client) return demoAnswer(question, lang);
+  const note = `(App note: ${LANGUAGE_NOTE[lang] ?? LANGUAGE_NOTE.en})`;
+  let raw;
+  if (claude) raw = await askClaude(question, history, note);
+  else if (gemini) raw = await askGemini(question, history, note);
+  else return demoAnswer(question, lang);
 
-  const messages = [
-    ...history.slice(-6),
-    {
-      role: "user",
-      content: [
-        { type: "text", text: question },
-        // Reply language goes in the turn (not the system prompt) so the cached system prompt stays identical.
-        { type: "text", text: `(App note: ${LANGUAGE_NOTE[lang] ?? LANGUAGE_NOTE.en})` },
-      ],
-    },
-  ];
+  if (raw === null) return declined(lang);
 
-  const response = await client.beta.messages.create({
-    model: MODEL,
-    max_tokens: 16000,
-    // If a safety classifier declines, the API retries on a fallback model automatically.
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-    output_config: {
-      effort: "medium",
-      format: { type: "json_schema", schema: OUTPUT_SCHEMA },
-    },
-    messages,
-  });
-
-  if (response.stop_reason === "refusal") {
-    return {
-      answer: lang === "te"
-        ? "ఈ ప్రశ్నకు నేను సహాయం చేయలేను. మీరు కష్టకాలంలో ఉంటే, దయచేసి మీరు నమ్మే వ్యక్తిని లేదా స్థానిక హెల్ప్‌లైన్‌ను (Tele-MANAS 14416) సంప్రదించండి. మీ మనసులో ఉన్న మరే విషయమైనా నన్ను అడగవచ్చు."
-        : "I'm not able to help with that question. If you are going through something difficult, please consider reaching out to someone you trust or a local helpline. You're welcome to ask me about anything on your heart.",
-      verses: [VERSE_BY_ID["shvetashvatara-6.11"]],
-    };
-  }
-
-  const text = response.content.find((b) => b.type === "text")?.text ?? "";
   let parsed;
   try {
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, ""));
   } catch {
-    throw new Error(`Guide returned unparseable output (stop_reason=${response.stop_reason})`);
+    throw new Error("Guide returned unparseable output");
   }
-
-  const verses = [...new Set(parsed.verse_ids)]
+  const verses = [...new Set(parsed.verse_ids ?? [])]
     .map((id) => VERSE_BY_ID[id])
     .filter(Boolean)
     .slice(0, 2);
-  return { answer: parsed.answer, verses };
+  return { answer: String(parsed.answer ?? ""), verses };
 }
 
-// Used when ANTHROPIC_API_KEY is not set, so the app can be tried end-to-end for free.
+// Returns the JSON text, or null if the model declined.
+async function askClaude(question, history, note) {
+  const messages = [
+    ...history.slice(-6),
+    // Reply language goes in the turn (not the system prompt) so the cached system prompt stays identical.
+    { role: "user", content: [{ type: "text", text: question }, { type: "text", text: note }] },
+  ];
+  try {
+    const response = await claude.beta.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 16000,
+      // If a safety classifier declines, the API retries on a fallback model automatically.
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      output_config: { effort: "medium", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
+      messages,
+    });
+    if (response.stop_reason === "refusal") return null;
+    return response.content.find((b) => b.type === "text")?.text ?? "";
+  } catch (err) {
+    if (err instanceof Anthropic.RateLimitError) throw new GuideBusyError(err.message);
+    throw err;
+  }
+}
+
+async function askGemini(question, history, note) {
+  const contents = [
+    ...history.slice(-6).map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+    { role: "user", parts: [{ text: question }, { text: note }] },
+  ];
+  try {
+    const response = await gemini.models.generateContent({
+      model: GEMINI_MODEL,
+      contents,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        responseMimeType: "application/json",
+        responseJsonSchema: GEMINI_SCHEMA,
+      },
+    });
+    return response.text || null; // empty when Gemini's safety filter blocks the reply
+  } catch (err) {
+    if (err?.status === 429 || err?.status === 503) throw new GuideBusyError(err.message);
+    throw err;
+  }
+}
+
+function declined(lang) {
+  return {
+    answer: lang === "te"
+      ? "ఈ ప్రశ్నకు నేను సహాయం చేయలేను. మీరు కష్టకాలంలో ఉంటే, దయచేసి మీరు నమ్మే వ్యక్తిని లేదా స్థానిక హెల్ప్‌లైన్‌ను (Tele-MANAS 14416) సంప్రదించండి. మీ మనసులో ఉన్న మరే విషయమైనా నన్ను అడగవచ్చు."
+      : "I'm not able to help with that question. If you are going through something difficult, please consider reaching out to someone you trust or a local helpline (Tele-MANAS 14416 in India). You're welcome to ask me about anything on your heart.",
+    verses: [VERSE_BY_ID["shvetashvatara-6.11"]],
+  };
+}
+
+// Used when no AI key is set, so the app can be tried end-to-end for free.
 function demoAnswer(question, lang) {
   const q = question.toLowerCase();
   const pick = VERSES.find((v) =>
@@ -108,7 +151,7 @@ function demoAnswer(question, lang) {
     return {
       demo: true,
       answer:
-        "(డెమో మోడ్: నిజమైన, వ్యక్తిగత మార్గదర్శనం కోసం ANTHROPIC_API_KEY జోడించండి.)\n\n" +
+        "(డెమో మోడ్: నిజమైన, వ్యక్తిగత మార్గదర్శనం కోసం GEMINI_API_KEY (ఉచితం) జోడించండి.)\n\n" +
         "మీ మనసులోని మాట పంచుకున్నందుకు ధన్యవాదాలు. పైన ఉన్న శ్లోకాన్ని నెమ్మదిగా ఒకసారి చదవండి. " +
         "మిమ్మల్ని మీరు అడగండి: నా పరిస్థితిలో నేను దేనిని వదిలేయగలను, ఈ రోజు నేను ఏ పని చేయాలి?",
       verses: [pick],
@@ -117,7 +160,7 @@ function demoAnswer(question, lang) {
   return {
     demo: true,
     answer:
-      "(Demo mode: add your ANTHROPIC_API_KEY to get real, personal guidance.)\n\n" +
+      "(Demo mode: add a free GEMINI_API_KEY to get real, personal guidance.)\n\n" +
       `Thank you for sharing this. The ${pick.ref.split(" ")[0]} Upanishad speaks to exactly this kind of moment. ` +
       "Take a slow breath and read the verse above. Ask yourself: which part of my situation can I let go of, and which part is asking for my action today?",
     verses: [pick],
