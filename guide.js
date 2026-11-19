@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
 import Groq from "groq-sdk";
 import { VERSES, VERSE_BY_ID } from "./verses.js";
+import { matchTopics, recommendations, isStrongMatch } from "./topics.js";
 
 // Which AI answers questions:
 //   ANTHROPIC_API_KEY -> Claude (paid, best quality); used alone when set
@@ -37,7 +38,8 @@ People come to you with real-life questions: stress, work, relationships, grief,
 
 How to answer:
 - Speak like a kind teacher: calm, simple, practical. No jargon without explaining it.
-- Pick the 1 or 2 verses from the VERSE LIBRARY below that best fit the person's situation and return their ids in "verse_ids". The app displays the verse text itself, so do NOT quote verses or invent any scripture in your answer; refer to the idea instead ("The Katha Upanishad compares the mind to reins...").
+- Choose the verse whose MEANING most directly speaks to the person's exact situation, and return its id in "verse_ids". Prefer ONE strong verse; add a second only if it clearly adds something different. A verse that is only loosely related is worse than none.
+- If the message includes "RECOMMENDED VERSES", those were chosen by our teachers for this situation: pick from them, normally the first ones. The app displays the verse text itself, so do NOT quote verses or invent any scripture in your answer; refer to the idea instead ("The Katha Upanishad compares the mind to reins...").
 - In "answer", write 120–220 words: acknowledge their feeling, explain the teaching in plain words, connect it to their life, and end with one small practice they can do today (a reflection, a breathing pause, a journaling question).
 - Never claim certainty about what any text "really" means; you offer one traditional reading.
 - You are not a doctor, therapist, lawyer or financial adviser. For medical, legal or financial matters, gently suggest a qualified professional as well.
@@ -72,15 +74,41 @@ const LANGUAGE_NOTE = {
  * @returns {Promise<{answer: string, verses: object[], demo?: boolean}>}
  */
 export async function askGuide(question, history = [], lang = "en") {
-  const { raw, provider } = await runAI({ system: SYSTEM_PROMPT, schema: OUTPUT_SCHEMA, question, history, lang });
+  // Topic map: if the question (or, for a follow-up, the previous question) matches a known life
+  // situation, the AI may only choose among the verses people picked for it.
+  let topics = matchTopics(question);
+  if (!topics.length) {
+    const prevUser = [...history].reverse().find((m) => m.role === "user");
+    if (prevUser) topics = matchTopics(prevUser.content);
+  }
+  const rec = recommendations(topics);
+  const schema = rec.verses.length && isStrongMatch(topics) ? withVerseChoices(OUTPUT_SCHEMA, rec.verses) : OUTPUT_SCHEMA;
+  const prompt = rec.verses.length
+    ? `${question}\n\n(RECOMMENDED VERSES for this situation, best first: ${rec.verses.map((id) => `${id} (${VERSE_BY_ID[id].ref})`).join(", ")})`
+    : question;
+  const topicIds = topics.map((t) => t.id);
+
+  const { raw, provider } = await runAI({ system: SYSTEM_PROMPT, schema, question: prompt, history, lang });
+  if (provider === "demo") {
+    const demo = demoAnswer(question, lang);
+    if (rec.verses.length) demo.verses = [VERSE_BY_ID[rec.verses[0]]];
+    return { ...demo, provider, topics: topicIds };
+  }
   if (provider === "demo") return { ...demoAnswer(question, lang), provider };
-  if (raw === null) return { ...declined(lang), provider };
+  if (raw === null) return { ...declined(lang), provider, topics: topicIds };
   const parsed = parseJson(raw);
   const verses = [...new Set(parsed.verse_ids ?? [])]
     .map((id) => VERSE_BY_ID[id])
     .filter(Boolean)
     .slice(0, 2);
-  return { answer: String(parsed.answer ?? ""), verses, provider };
+  return { answer: String(parsed.answer ?? ""), verses, provider, topics: topicIds };
+}
+
+/** Copy of a schema whose verse_ids may only be the given ids. */
+export function withVerseChoices(schema, ids) {
+  const copy = structuredClone(schema);
+  copy.properties.verse_ids.items.enum = ids;
+  return copy;
 }
 
 /** Parses the model's JSON reply (tolerates ``` fences or text around it). */

@@ -106,9 +106,11 @@ app.post("/api/ask", requireUser, async (req, res) => {
     await store.recordQuestion(req.user.id);
     // Save to the user's journal (a failure here shouldn't lose the answer).
     const entryId = await store
-      .addEntry(req.user.id, { question, answer: result.answer, verseIds: result.verses.map((v) => v.id), lang, provider: result.provider })
+      .addEntry(req.user.id, { question, answer: result.answer, verseIds: result.verses.map((v) => v.id), lang, provider: result.provider, topics: result.topics ?? [] })
       .catch((err) => console.error("journal save failed:", err.message));
-    store.bumpStats({ questions: 1, [`q_${lang}`]: 1, [`by_${result.provider}`]: 1 }).catch(() => {});
+    // Which topics people ask about ("topic_none" = not in the topic map yet: a candidate for new content).
+    const topicCounts = Object.fromEntries((result.topics?.length ? result.topics : ["none"]).map((t) => [`topic_${t.replace(/-/g, "_")}`, 1]));
+    store.bumpStats({ questions: 1, [`q_${lang}`]: 1, [`by_${result.provider}`]: 1, ...topicCounts }).catch(() => {});
     res.json({ ...result, entryId, me: await publicUser(req.user) });
   } catch (err) {
     // "detail" shows the AI provider's reason (e.g. quota or model problems) so it can be fixed quickly.

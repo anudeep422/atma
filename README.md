@@ -95,6 +95,7 @@ FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:808
 | `public/privacy.html`, `public/about.html` | Privacy and About pages (text lives in `public/i18n.js`; set `CONTACT_EMAIL` for the contact link) |
 | `public/stats.html` | Private stats (users, questions, 👍/👎 per AI, shares). Set `ADMIN_EMAILS` to your email to open it |
 | `public/manifest.webmanifest`, `public/sw.js`, `public/pwa.js` | Lets people install Atma on their phone's home screen |
+| `topics.js` | **Topic map**: ~30 life situations with verses and practices chosen by people. Strong matches limit the AI to these verses; add keywords (EN/TE) or reorder verses here to improve answers. The Stats page counts topics, and `topic_none` shows questions not covered yet |
 | `coach.js` | The Coach: plan + check-in prompts (uses `verses.js` and `practices.js`) |
 | `practices.js` | Practices library (traditional + "inspired by" Neville Goddard, Osho, Gurdjieff, J. Krishnamurti, José Silva), English + Telugu. Review before launch |
 | `translit.js` | Converts Sanskrit (Roman letters) to Telugu script |

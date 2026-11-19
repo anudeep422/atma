@@ -1,5 +1,6 @@
 // The Coach: a 7-day plan for one goal, with daily check-ins, grounded in scripture + practices.
-import { runAI, parseJson } from "./guide.js";
+import { runAI, parseJson, withVerseChoices } from "./guide.js";
+import { matchTopics, recommendations, isStrongMatch } from "./topics.js";
 import { VERSES, VERSE_BY_ID } from "./verses.js";
 import { PRACTICES, PRACTICE_BY_ID } from "./practices.js";
 
@@ -10,7 +11,7 @@ const COACH_PROMPT = `You are Atma Coach, a warm, practical life coach whose wis
 Your coaching style: kind, encouraging, specific and realistic. Small daily steps, never lectures.
 
 Rules:
-- Ground every plan in 1–2 verses from the VERSE LIBRARY (by id) and 1–3 practices from the PRACTICE LIBRARY (by id). Never quote or invent scripture or teachings yourself; the app shows verse and practice text from the libraries.
+- Ground every plan in 1–2 verses from the VERSE LIBRARY (by id) and 1–3 practices from the PRACTICE LIBRARY (by id). Choose verses whose MEANING directly fits the goal; when the request lists RECOMMENDED VERSES / PRACTICES (chosen by our teachers), use those. Never quote or invent scripture or teachings yourself; the app shows verse and practice text from the libraries.
 - Daily actions must be small, concrete and doable in 5–20 minutes ("Before replying to your mother today, take one breath"), not vague ("be patient").
 - Never promise results (money, love, health, success). Teach that intention + right action + acceptance bring change; outcomes are not guaranteed.
 - WEALTH: speak about honest effort, skill, discipline with money, generosity and contentment (dharma). Never give specific financial, investment, tax or legal advice; for those, suggest a qualified professional.
@@ -70,8 +71,18 @@ Return: "title" (short, max 8 words), "sankalpa" (one short present-tense intent
 "why" (2–3 sentences linking the chosen verse to the goal), 1–2 "verse_ids", 1–3 "practice_ids",
 and exactly ${PLAN_DAYS} "days", each with one small concrete "action" (1–2 sentences) and optionally the "practice_id" used that day.
 Day 1 should be very easy; build up gently.`;
-  const { raw, provider } = await runAI({ system: COACH_PROMPT, schema: PLAN_SCHEMA, question, lang });
-  if (provider === "demo") return { ...demoPlan(area, goal, lang), provider };
+  const topics = matchTopics(goal);
+  const rec = recommendations(topics);
+  const schema = rec.verses.length && isStrongMatch(topics) ? withVerseChoices(PLAN_SCHEMA, rec.verses) : PLAN_SCHEMA;
+  const prompt = rec.verses.length
+    ? `${question}\n\nRECOMMENDED VERSES (best first): ${rec.verses.join(", ")}\nRECOMMENDED PRACTICES: ${rec.practices.join(", ")}`
+    : question;
+  const { raw, provider } = await runAI({ system: COACH_PROMPT, schema, question: prompt, lang });
+  if (provider === "demo") {
+    const demo = demoPlan(area, goal, lang);
+    if (rec.verses.length) demo.verseIds = [rec.verses[0]];
+    return { ...demo, topics: topics.map((t) => t.id), provider };
+  }
   if (raw === null) throw Object.assign(new Error("declined"), { declined: true });
   const p = parseJson(raw);
   const days = (p.days ?? []).slice(0, PLAN_DAYS).map((d) => ({
@@ -86,6 +97,7 @@ Day 1 should be very easy; build up gently.`;
     verseIds: [...new Set(p.verse_ids ?? [])].filter((id) => VERSE_BY_ID[id]).slice(0, 2),
     practiceIds: [...new Set(p.practice_ids ?? [])].filter((id) => PRACTICE_BY_ID[id]).slice(0, 3),
     days,
+    topics: topics.map((t) => t.id),
     provider,
   };
 }
