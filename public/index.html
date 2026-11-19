@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atma: Wisdom of the Upanishads</title>
+  <meta name="description" content="Ask life's questions and receive guidance from the Upanishads: a daily verse, personal answers and simple practices.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="logo" href="/">Atma<span>.</span></a>
+      <a class="btn ghost" href="/app.html">Log in</a>
+    </nav>
+
+    <section class="hero">
+      <h1>Ancient wisdom for<br>the questions you carry today</h1>
+      <p>Ask about stress, purpose, relationships or loss, and receive gentle guidance drawn from the Upanishads, with a simple practice for your day.</p>
+      <a class="btn" href="/app.html?signup=1">Start free</a>
+    </section>
+
+    <h2>Today's verse</h2>
+    <div id="votd" class="verse"><p class="en">Loading…</p></div>
+
+    <h2>How it works</h2>
+    <div class="grid">
+      <div class="card"><h3>1. Ask</h3><p>Share what's on your mind, in your own words.</p></div>
+      <div class="card"><h3>2. Receive</h3><p>Get guidance rooted in authentic Upanishad verses, explained simply.</p></div>
+      <div class="card"><h3>3. Practice</h3><p>Leave with one small practice to bring the teaching into your day.</p></div>
+    </div>
+
+    <h2>Pricing</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Free</h3>
+        <div class="price">$0</div>
+        <ul><li>Verse of the day</li><li>3 questions per day</li></ul>
+        <a class="btn ghost" href="/app.html?signup=1">Start free</a>
+      </div>
+      <div class="card featured">
+        <h3>Seeker</h3>
+        <div class="price">$4.99<small style="font-size:16px">/month</small></div>
+        <ul><li>Unlimited questions</li><li>Deeper, continuing conversations</li><li>Cancel anytime</li></ul>
+        <a class="btn" href="/app.html?signup=1">Get started</a>
+      </div>
+    </div>
+
+    <footer>
+      Atma offers spiritual reflection, not medical, legal or financial advice.<br>
+      If you are in crisis, please contact a local helpline or emergency services.
+    </footer>
+  </div>
+  <script>
+    fetch("/api/verse-of-the-day").then(r => r.json()).then(v => {
+      const el = document.getElementById("votd");
+      el.innerHTML = "";
+      for (const [cls, text] of [["ref", v.ref], ["sa", v.sanskrit], ["en", v.english]]) {
+        const p = document.createElement(cls === "ref" ? "div" : "p");
+        p.className = cls; p.textContent = text; el.appendChild(p);
+      }
+    });
+  </script>
+</body>
+</html>
