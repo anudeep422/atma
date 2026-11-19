@@ -89,6 +89,8 @@ FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:808
 | `store.js` | Firebase: checks sign-ins, stores users and usage in Firestore |
 | `client/firebase-auth.js` | Browser sign-in code (Google, email, password reset); built into `public/` on `npm install` |
 | `firebase-config.json` | Your Firebase project's public web settings |
+| `public/verse-actions.js` | Share verse as an image card (WhatsApp) and read verses aloud |
+| `public/privacy.html`, `public/about.html` | Privacy and About pages (text lives in `public/i18n.js`; set `CONTACT_EMAIL` for the contact link) |
 | `translit.js` | Converts Sanskrit (Roman letters) to Telugu script |
 | `public/i18n.js` | All English/Telugu website text: edit wording here |
 | `public/` | Landing page and app UI |

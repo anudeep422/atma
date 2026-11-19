@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import Stripe from "stripe";
 import * as store from "./store.js";
 import { askGuide, GuideBusyError, AI_PROVIDER, describeAiError } from "./guide.js";
-import { verseOfTheDay } from "./verses.js";
+import { verseOfTheDay, VERSE_BY_ID } from "./verses.js";
 
 const PORT = Number(process.env.PORT || 3000);
 const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
@@ -75,7 +75,7 @@ const publicUser = async (u) => {
 };
 
 // ---- routes ----
-app.get("/api/config", (_req, res) => res.json({ firebase: firebaseWebConfig, emulator: store.firebaseEmulator, unlimited: UNLIMITED }));
+app.get("/api/config", (_req, res) => res.json({ firebase: firebaseWebConfig, emulator: store.firebaseEmulator, unlimited: UNLIMITED, contactEmail: process.env.CONTACT_EMAIL || "" }));
 
 app.get("/api/verse-of-the-day", (_req, res) => res.json(verseOfTheDay()));
 
@@ -99,7 +99,11 @@ app.post("/api/ask", requireUser, async (req, res) => {
     const lang = req.body.lang === "te" ? "te" : "en";
     const result = await askGuide(question, history, lang);
     await store.recordQuestion(req.user.id);
-    res.json({ ...result, me: await publicUser(req.user) });
+    // Save to the user's journal (a failure here shouldn't lose the answer).
+    const entryId = await store
+      .addEntry(req.user.id, { question, answer: result.answer, verseIds: result.verses.map((v) => v.id), lang })
+      .catch((err) => console.error("journal save failed:", err.message));
+    res.json({ ...result, entryId, me: await publicUser(req.user) });
   } catch (err) {
     // "detail" shows the AI provider's reason (e.g. quota or model problems) so it can be fixed quickly.
     const detail = err.detail ?? describeAiError(err);
@@ -110,6 +114,16 @@ app.post("/api/ask", requireUser, async (req, res) => {
     console.error("askGuide failed:", err);
     res.status(500).json({ error: "Something went wrong. Please try again.", code: "generic", detail });
   }
+});
+
+app.get("/api/journal", requireUser, async (req, res) => {
+  const list = await store.listEntries(req.user.id);
+  res.json(list.map((e) => ({ ...e, verses: (e.verseIds ?? []).map((id) => VERSE_BY_ID[id]).filter(Boolean) })));
+});
+
+app.delete("/api/journal/:id", requireUser, async (req, res) => {
+  await store.deleteEntry(req.user.id, String(req.params.id));
+  res.json({ ok: true });
 });
 
 app.post("/api/checkout", requireUser, async (req, res) => {

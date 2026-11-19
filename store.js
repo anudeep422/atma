@@ -75,3 +75,21 @@ export async function setPremiumByCustomer(stripeCustomerId, premium) {
   const found = await users.where("stripeCustomerId", "==", stripeCustomerId).get();
   await Promise.all(found.docs.map((d) => d.ref.update({ premium: Boolean(premium) })));
 }
+
+// ---- Journal: each user's past questions and answers (users/{uid}/entries) ----
+const entries = (uid) => users.doc(uid).collection("entries");
+
+export async function addEntry(uid, { question, answer, verseIds, lang }) {
+  const ref = await entries(uid).add({ question, answer, verseIds, lang, createdAt: FieldValue.serverTimestamp() });
+  return ref.id;
+}
+
+export async function listEntries(uid, limit = 50) {
+  const snap = await entries(uid).orderBy("createdAt", "desc").limit(limit).get();
+  return snap.docs.map((d) => {
+    const e = d.data();
+    return { id: d.id, ...e, createdAt: e.createdAt?.toDate?.().toISOString() ?? null };
+  });
+}
+
+export const deleteEntry = (uid, id) => entries(uid).doc(id).delete();

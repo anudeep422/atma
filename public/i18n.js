@@ -5,6 +5,44 @@
 const STRINGS = {
   en: {
     switch_to: "తెలుగు",
+    open_app: "Open app",
+    contact_owner: "the app owner",
+    footer_links: '<a href="/about.html">About Atma</a> · <a href="/privacy.html">Privacy</a>',
+    about_html: `<h1>About Atma</h1>
+<p>Atma brings the timeless wisdom of the Upanishads into everyday life, in Telugu and English.</p>
+<p>When you share what is on your heart, Atma's guide picks one or two verses that speak to your situation, explains them in simple words, and suggests one small practice for your day.</p>
+<h2>Real verses, never invented</h2>
+<p>The guide can only choose from a carefully selected library of Upanishad verses. The verse you see (reference, Sanskrit and meaning) is shown exactly from that library. The AI never writes scripture itself.</p>
+<h2>What Atma is not</h2>
+<p>Atma offers spiritual reflection. It is not a doctor, therapist, lawyer or financial adviser. If you are in crisis, please contact a local helpline (in India: Tele-MANAS <b>14416</b>) or emergency services.</p>
+<h2>Contact</h2>
+<p>Questions, suggestions or corrections to a verse: {contact}.</p>`,
+    privacy_html: `<h1>Privacy</h1>
+<p>Your trust matters. This page explains simply what Atma stores and why.</p>
+<h2>What we store</h2>
+<ul>
+<li><b>Your account:</b> your email address (and name, if you sign in with Google), through Google Firebase Authentication.</li>
+<li><b>Your journal:</b> the questions you ask and the guide's answers, so you can read them again. You can delete any entry in <b>My journal</b>.</li>
+<li><b>Usage:</b> how many questions you asked each day.</li>
+</ul>
+<h2>How answers are created</h2>
+<p>To write an answer, your question is sent to an AI service: <b>Google Gemini</b>, or <b>Groq</b> as a backup. While Atma uses the free versions of these services, <b>they may use the text to improve their products</b>. Please don't include very private details such as your full name, phone number, address or medical records in your questions.</p>
+<h2>What we never do</h2>
+<ul><li>We don't sell your data.</li><li>We don't show ads.</li></ul>
+<h2>Deleting your data</h2>
+<p>Delete journal entries any time in <b>My journal</b>. To delete your whole account and all its data, write to {contact}.</p>
+<p class="muted">Last updated: November 2026</p>`,
+    journal: "My journal",
+    back_to_guide: "Back to the guide",
+    journal_empty: "Your past questions and answers will appear here.",
+    delete: "Delete",
+    confirm_delete: "Delete this entry from your journal?",
+    share: "📤 Share",
+    listen: "🔊 Listen",
+    stop: "⏹ Stop",
+    card_cta: "Ask your question on Atma",
+    no_voice: "Sorry, this browser can't read text aloud.",
+    no_te_voice: "This phone doesn't have a Telugu voice installed. On Android: Settings > Accessibility > Text-to-speech > install Telugu. Or switch to English.",
     login: "Log in",
     logout: "Log out",
     hero_title: "Ancient wisdom for<br>the questions you carry today",
@@ -69,6 +107,44 @@ const STRINGS = {
   },
   te: {
     switch_to: "English",
+    open_app: "యాప్ తెరవండి",
+    contact_owner: "యాప్ యజమాని",
+    footer_links: '<a href="/about.html">ఆత్మ గురించి</a> · <a href="/privacy.html">గోప్యత</a>',
+    about_html: `<h1>ఆత్మ గురించి</h1>
+<p>ఉపనిషత్తుల శాశ్వత జ్ఞానాన్ని తెలుగు మరియు ఇంగ్లీష్‌లో మీ రోజువారీ జీవితంలోకి తీసుకువస్తుంది ఆత్మ.</p>
+<p>మీ మనసులోని మాటను పంచుకున్నప్పుడు, ఆత్మ మార్గదర్శి మీ పరిస్థితికి సరిపోయే ఒకటి లేదా రెండు శ్లోకాలను ఎంచుకుని, సరళమైన మాటల్లో వివరించి, మీ రోజుకు ఒక చిన్న సాధనను సూచిస్తుంది.</p>
+<h2>అసలైన శ్లోకాలు, కల్పితం కాదు</h2>
+<p>మార్గదర్శి జాగ్రత్తగా ఎంపిక చేసిన ఉపనిషత్ శ్లోకాల గ్రంథాలయం నుండి మాత్రమే ఎంచుకోగలదు. మీరు చూసే శ్లోకం (మూలం, సంస్కృతం, అర్థం) ఆ గ్రంథాలయం నుండి యథాతథంగా చూపబడుతుంది. AI స్వయంగా ఎప్పుడూ శ్లోకాలను రాయదు.</p>
+<h2>ఆత్మ ఏది కాదు</h2>
+<p>ఆత్మ ఆధ్యాత్మిక చింతనను అందిస్తుంది. ఇది వైద్యుడు, మానసిక నిపుణుడు, న్యాయవాది లేదా ఆర్థిక సలహాదారు కాదు. మీరు సంక్షోభంలో ఉంటే, దయచేసి స్థానిక హెల్ప్‌లైన్ (భారతదేశంలో: Tele-MANAS <b>14416</b>) లేదా అత్యవసర సేవలను సంప్రదించండి.</p>
+<h2>సంప్రదించండి</h2>
+<p>ప్రశ్నలు, సూచనలు లేదా శ్లోకంలో సవరణల కోసం: {contact}.</p>`,
+    privacy_html: `<h1>గోప్యత</h1>
+<p>మీ నమ్మకం మాకు ముఖ్యం. ఆత్మ ఏమి నిల్వ చేస్తుందో, ఎందుకో ఈ పేజీ సరళంగా వివరిస్తుంది.</p>
+<h2>మేము నిల్వ చేసేవి</h2>
+<ul>
+<li><b>మీ ఖాతా:</b> మీ ఈమెయిల్ (Google తో సైన్ ఇన్ చేస్తే మీ పేరు కూడా), Google Firebase Authentication ద్వారా.</li>
+<li><b>మీ డైరీ:</b> మీరు అడిగిన ప్రశ్నలు, మార్గదర్శి సమాధానాలు, మీరు మళ్ళీ చదువుకోవడానికి. <b>నా డైరీ</b> లో ఏ ఎంట్రీనైనా తొలగించవచ్చు.</li>
+<li><b>వినియోగం:</b> మీరు రోజుకు ఎన్ని ప్రశ్నలు అడిగారు.</li>
+</ul>
+<h2>సమాధానాలు ఎలా తయారవుతాయి</h2>
+<p>సమాధానం రాయడానికి మీ ప్రశ్న ఒక AI సేవకు పంపబడుతుంది: <b>Google Gemini</b>, లేదా బ్యాకప్‌గా <b>Groq</b>. ఆత్మ ఈ సేవల ఉచిత వెర్షన్‌లను వాడుతున్నంత కాలం, <b>అవి తమ సేవలను మెరుగుపరచుకోవడానికి ఆ వచనాన్ని ఉపయోగించవచ్చు</b>. దయచేసి మీ పూర్తి పేరు, ఫోన్ నంబర్, చిరునామా లేదా వైద్య రికార్డుల వంటి చాలా వ్యక్తిగత వివరాలను మీ ప్రశ్నల్లో ఇవ్వకండి.</p>
+<h2>మేము ఎప్పుడూ చేయనివి</h2>
+<ul><li>మీ డేటాను అమ్మము.</li><li>ప్రకటనలు చూపించము.</li></ul>
+<h2>మీ డేటాను తొలగించడం</h2>
+<p><b>నా డైరీ</b> లో ఎప్పుడైనా ఎంట్రీలను తొలగించవచ్చు. మీ పూర్తి ఖాతాను, దాని డేటా మొత్తాన్ని తొలగించడానికి {contact} కు రాయండి.</p>
+<p class="muted">చివరి నవీకరణ: నవంబర్ 2026</p>`,
+    journal: "నా డైరీ",
+    back_to_guide: "మార్గదర్శి వద్దకు",
+    journal_empty: "మీ పాత ప్రశ్నలు, సమాధానాలు ఇక్కడ కనిపిస్తాయి.",
+    delete: "తొలగించు",
+    confirm_delete: "ఈ ఎంట్రీని మీ డైరీ నుండి తొలగించాలా?",
+    share: "📤 షేర్ చేయండి",
+    listen: "🔊 వినండి",
+    stop: "⏹ ఆపండి",
+    card_cta: "మీ ప్రశ్నను ఆత్మను అడగండి",
+    no_voice: "క్షమించండి, ఈ బ్రౌజర్ వచనాన్ని చదివి వినిపించలేదు.",
+    no_te_voice: "ఈ ఫోన్‌లో తెలుగు వాయిస్ లేదు. Android లో: Settings > Accessibility > Text-to-speech > తెలుగు ఇన్‌స్టాల్ చేయండి. లేదా English కు మారండి.",
     login: "లాగిన్",
     logout: "లాగ్ అవుట్",
     hero_title: "నేటి మీ ప్రశ్నలకు<br>ప్రాచీన జ్ఞానం",
@@ -144,15 +220,23 @@ function initialLang() {
 let LANG = initialLang();
 const onLangChange = [];
 
+let CONTACT = ""; // contact email, set by pages that need it (from /api/config)
+
 function t(key, vars = {}) {
   const s = STRINGS[LANG][key] ?? STRINGS.en[key] ?? key;
-  return s.replace(/\{(\w+)\}/g, (_, k) => vars[k]);
+  return s.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
+}
+
+function contactHtml() {
+  if (!CONTACT) return t("contact_owner");
+  const safe = CONTACT.replace(/[^\w.@+-]/g, "");
+  return `<a href="mailto:${safe}">${safe}</a>`;
 }
 
 function applyLang() {
   document.documentElement.lang = LANG;
   document.querySelectorAll("[data-i18n]").forEach((el) => (el.textContent = t(el.dataset.i18n)));
-  document.querySelectorAll("[data-i18n-html]").forEach((el) => (el.innerHTML = t(el.dataset.i18nHtml)));
+  document.querySelectorAll("[data-i18n-html]").forEach((el) => (el.innerHTML = t(el.dataset.i18nHtml, { contact: contactHtml() })));
   document.querySelectorAll("[data-i18n-ph]").forEach((el) => (el.placeholder = t(el.dataset.i18nPh)));
   document.querySelectorAll(".verse[data-verse]").forEach(fillVerse);
   onLangChange.forEach((fn) => fn(LANG));
@@ -179,6 +263,21 @@ function fillVerse(box) {
     el.className = cls;
     el.textContent = text;
     box.appendChild(el);
+  }
+  // Share + Listen buttons (verse-actions.js), on every page that loads it.
+  if (typeof shareVerse === "function") {
+    const bar = document.createElement("div");
+    bar.className = "verse-actions";
+    const share = document.createElement("button");
+    share.type = "button";
+    share.textContent = t("share");
+    share.onclick = () => shareVerse(v, share);
+    const listen = document.createElement("button");
+    listen.type = "button";
+    listen.textContent = t("listen");
+    listen.onclick = () => speakVerse(v, listen);
+    bar.append(share, listen);
+    box.appendChild(bar);
   }
 }
 

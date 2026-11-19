@@ -88,3 +88,23 @@ footer { text-align: center; color: var(--muted); font-size: 13px; padding: 48px
 .or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
 .info { color: var(--saffron-dark); min-height: 1.4em; font-size: 14px; }
 .msg.guide p.detail { font-size: 12px; color: var(--muted); margin: 8px 0 0; word-break: break-word; }
+
+.verse-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.verse-actions button { background: var(--card); border: 1px solid var(--line); color: var(--ink); border-radius: 999px;
+  padding: 6px 14px; cursor: pointer; font: 500 14px var(--sans); }
+.verse-actions button:hover { border-color: var(--saffron); }
+.verse-actions button:disabled { opacity: .6; cursor: wait; }
+
+.journal-item summary { cursor: pointer; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.journal-item summary::-webkit-details-marker { display: none; }
+.journal-item .jdate { font-size: 12px; color: var(--muted); }
+.journal-item .jq { font-weight: 600; }
+.journal-item[open] summary { margin-bottom: 8px; }
+.journal-item p { white-space: pre-wrap; }
+
+.page { max-width: 680px; margin: 0 auto; padding: 8px 0 24px; }
+.page h1 { font: 600 40px/1.2 var(--serif); margin: 24px 0 12px; }
+.page h2 { font: 600 24px var(--serif); text-align: left; margin: 28px 0 8px; }
+.page p, .page li { color: var(--ink); }
+.page .muted { color: var(--muted); font-size: 14px; }
+footer a { color: var(--muted); }

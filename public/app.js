@@ -5,10 +5,10 @@ let signupMode = params.has("signup");
 let history = []; // recent turns sent to the guide for context
 let me = null;
 
-async function api(path, body) {
+async function api(path, body, method) {
   const token = await AtmaAuth.token();
   const res = await fetch(path, {
-    method: body === undefined ? "GET" : "POST",
+    method: method ?? (body === undefined ? "GET" : "POST"),
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -55,6 +55,8 @@ function showAuth() {
   $("auth").classList.remove("hidden");
   $("main").classList.add("hidden");
   $("logout").classList.add("hidden");
+  $("journal-btn").classList.add("hidden");
+  $("journal").classList.add("hidden");
   renderAuthText();
 }
 
@@ -141,6 +143,7 @@ function showMain(user) {
   $("auth").classList.add("hidden");
   $("main").classList.remove("hidden");
   $("logout").classList.remove("hidden");
+  $("journal-btn").classList.remove("hidden");
   renderPlan();
   renderNotice();
 }
@@ -220,6 +223,65 @@ $("manage").onclick = async () => {
   if (ok && data.url) location.href = data.url;
   else alert(errorText(data));
 };
+
+// ---------- journal ----------
+function formatDate(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString(LANG === "te" ? "te-IN" : "en-IN", { dateStyle: "medium", timeStyle: "short" });
+}
+
+async function openJournal() {
+  $("main").classList.add("hidden");
+  $("journal").classList.remove("hidden");
+  const list = $("journal-list");
+  list.innerHTML = "";
+  const loading = document.createElement("p");
+  loading.className = "thinking";
+  loading.textContent = t("loading");
+  list.appendChild(loading);
+
+  const { ok, data } = await api("/api/journal");
+  list.innerHTML = "";
+  if (!ok) { list.textContent = errorText(data); return; }
+  $("journal-empty").classList.toggle("hidden", data.length > 0);
+
+  for (const e of data) {
+    const item = document.createElement("details");
+    item.className = "msg guide journal-item";
+    const summary = document.createElement("summary");
+    const date = document.createElement("span");
+    date.className = "jdate";
+    date.textContent = formatDate(e.createdAt);
+    const q = document.createElement("span");
+    q.className = "jq";
+    q.textContent = e.question;
+    summary.append(date, q);
+    item.appendChild(summary);
+    e.verses.forEach((v) => item.appendChild(verseEl(v)));
+    const p = document.createElement("p");
+    p.textContent = e.answer;
+    item.appendChild(p);
+    const del = document.createElement("button");
+    del.className = "link";
+    del.textContent = t("delete");
+    del.onclick = async () => {
+      if (!confirm(t("confirm_delete"))) return;
+      const r = await api(`/api/journal/${encodeURIComponent(e.id)}`, undefined, "DELETE");
+      if (r.ok) item.remove();
+      if (!list.children.length) $("journal-empty").classList.remove("hidden");
+    };
+    item.appendChild(del);
+    list.appendChild(item);
+  }
+}
+
+function closeJournal() {
+  $("journal").classList.add("hidden");
+  $("main").classList.remove("hidden");
+}
+
+$("journal-btn").onclick = openJournal;
+$("journal-back").onclick = closeJournal;
 
 // ---------- start ----------
 AtmaAuth.init(onSignInChange);
