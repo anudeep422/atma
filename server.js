@@ -1,7 +1,8 @@
 import express from "express";
+import { readFileSync } from "node:fs";
 import Stripe from "stripe";
 import Anthropic from "@anthropic-ai/sdk";
-import * as store from "./db.js";
+import * as store from "./store.js";
 import { askGuide } from "./guide.js";
 import { verseOfTheDay } from "./verses.js";
 
@@ -12,6 +13,12 @@ const IS_PROD = process.env.NODE_ENV === "production";
 
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 if (IS_PROD && !stripe) throw new Error("STRIPE_SECRET_KEY is required in production");
+if (IS_PROD && !store.firebaseReady) throw new Error("FIREBASE_SERVICE_ACCOUNT is required in production");
+
+// Public Firebase web settings (safe to publish). Filled in from your Firebase project.
+const firebaseWebConfig = store.firebaseEmulator
+  ? { apiKey: "demo-key", authDomain: "localhost", projectId: process.env.GCLOUD_PROJECT || "demo-atma" }
+  : JSON.parse(readFileSync(new URL("./firebase-config.json", import.meta.url), "utf8"));
 
 const app = express();
 
@@ -27,7 +34,7 @@ app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async
   const obj = event.data.object;
   switch (event.type) {
     case "checkout.session.completed":
-      if (obj.client_reference_id) await store.setPremium(Number(obj.client_reference_id), true, obj.customer);
+      if (obj.client_reference_id) await store.setPremium(obj.client_reference_id, true, obj.customer);
       break;
     case "customer.subscription.updated":
       await store.setPremiumByCustomer(obj.customer, ["active", "trialing"].includes(obj.status));
@@ -42,22 +49,12 @@ app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async
 app.use(express.json({ limit: "50kb" }));
 app.use(express.static("public"));
 
-// ---- auth helpers ----
-function getCookie(req, name) {
-  const match = (req.headers.cookie || "").split(/;\s*/).find((c) => c.startsWith(name + "="));
-  return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
-}
-
-async function startSession(res, userId) {
-  const { token, maxAge } = await store.createSession(userId);
-  res.setHeader("Set-Cookie",
-    `sid=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}${IS_PROD ? "; Secure" : ""}`);
-}
-
+// ---- auth: the browser signs in with Firebase and sends its ID token ----
 async function requireUser(req, res, next) {
-  const user = await store.userForSession(getCookie(req, "sid"));
-  if (!user) return res.status(401).json({ error: "Please log in." });
-  req.user = user;
+  const token = (req.headers.authorization || "").replace(/^Bearer /, "");
+  const who = token && (await store.verifyToken(token));
+  if (!who) return res.status(401).json({ error: "Please log in." });
+  req.user = await store.getOrCreateUser(who.uid, who.email);
   next();
 }
 
@@ -72,33 +69,9 @@ const publicUser = async (u) => {
 };
 
 // ---- routes ----
+app.get("/api/config", (_req, res) => res.json({ firebase: firebaseWebConfig, emulator: store.firebaseEmulator }));
+
 app.get("/api/verse-of-the-day", (_req, res) => res.json(verseOfTheDay()));
-
-app.post("/api/signup", async (req, res) => {
-  const email = String(req.body.email || "").trim().toLowerCase();
-  const password = String(req.body.password || "");
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: "Please enter a valid email.", code: "invalid_email" });
-  if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters.", code: "short_password" });
-  if (await store.findUserByEmail(email)) return res.status(409).json({ error: "An account with this email already exists.", code: "email_exists" });
-  const id = await store.createUser(email, password);
-  await startSession(res, id);
-  res.json(await publicUser(await store.findUserById(id)));
-});
-
-app.post("/api/login", async (req, res) => {
-  const user = await store.findUserByEmail(String(req.body.email || "").trim().toLowerCase());
-  if (!user || !store.checkPassword(String(req.body.password || ""), user.pass_hash)) {
-    return res.status(401).json({ error: "Wrong email or password.", code: "wrong_login" });
-  }
-  await startSession(res, user.id);
-  res.json(await publicUser(user));
-});
-
-app.post("/api/logout", async (req, res) => {
-  await store.deleteSession(getCookie(req, "sid"));
-  res.setHeader("Set-Cookie", "sid=; Path=/; Max-Age=0");
-  res.json({ ok: true });
-});
 
 app.get("/api/me", requireUser, async (req, res) => res.json(await publicUser(req.user)));
 
@@ -139,8 +112,8 @@ app.post("/api/checkout", requireUser, async (req, res) => {
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
-    client_reference_id: String(req.user.id),
-    ...(req.user.stripe_customer_id ? { customer: req.user.stripe_customer_id } : { customer_email: req.user.email }),
+    client_reference_id: req.user.id,
+    ...(req.user.stripeCustomerId ? { customer: req.user.stripeCustomerId } : { customer_email: req.user.email || undefined }),
     success_url: `${APP_URL}/app.html?upgraded=1`,
     cancel_url: `${APP_URL}/app.html`,
   });
@@ -148,9 +121,9 @@ app.post("/api/checkout", requireUser, async (req, res) => {
 });
 
 app.post("/api/billing-portal", requireUser, async (req, res) => {
-  if (!stripe || !req.user.stripe_customer_id) return res.status(400).json({ error: "No subscription to manage." });
+  if (!stripe || !req.user.stripeCustomerId) return res.status(400).json({ error: "No subscription to manage." });
   const portal = await stripe.billingPortal.sessions.create({
-    customer: req.user.stripe_customer_id,
+    customer: req.user.stripeCustomerId,
     return_url: `${APP_URL}/app.html`,
   });
   res.json({ url: portal.url });
@@ -160,4 +133,5 @@ app.listen(PORT, () => {
   console.log(`Atma running at ${APP_URL}`);
   console.log(`  AI guide: ${process.env.ANTHROPIC_API_KEY ? "Claude (live)" : "DEMO mode (set ANTHROPIC_API_KEY)"}`);
   console.log(`  Payments: ${stripe ? "Stripe" : "DEMO mode (set STRIPE_SECRET_KEY)"}`);
+  console.log(`  Accounts: ${store.firebaseEmulator ? "Firebase EMULATOR" : store.firebaseReady ? "Firebase" : "NOT CONFIGURED (set FIREBASE_SERVICE_ACCOUNT)"}`);
 });

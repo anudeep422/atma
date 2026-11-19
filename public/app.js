@@ -6,9 +6,13 @@ let history = []; // recent turns sent to the guide for context
 let me = null;
 
 async function api(path, body) {
+  const token = await AtmaAuth.token();
   const res = await fetch(path, {
     method: body === undefined ? "GET" : "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
@@ -16,6 +20,23 @@ async function api(path, body) {
 }
 
 const errorText = (data) => (data.code ? t("err_" + data.code) : data.error) || t("err_generic");
+
+// Firebase error codes -> our messages
+const FIREBASE_ERRORS = {
+  "auth/email-already-in-use": "email_exists",
+  "auth/invalid-email": "invalid_email",
+  "auth/weak-password": "short_password",
+  "auth/invalid-credential": "wrong_login",
+  "auth/wrong-password": "wrong_login",
+  "auth/user-not-found": "wrong_login",
+  "auth/too-many-requests": "too_many",
+};
+const showAuthError = (err) => {
+  if (err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") return;
+  console.error(err);
+  $("auth-error").className = "error";
+  $("auth-error").textContent = t("err_" + (FIREBASE_ERRORS[err?.code] || "generic"));
+};
 
 // ---------- auth ----------
 function renderAuthText() {
@@ -36,14 +57,44 @@ $("auth-toggle").onclick = () => { signupMode = !signupMode; renderAuthText(); }
 $("auth-form").onsubmit = async (e) => {
   e.preventDefault();
   $("auth-error").textContent = "";
-  const { ok, data } = await api(signupMode ? "/api/signup" : "/api/login", {
-    email: $("email").value, password: $("password").value,
-  });
-  if (!ok) return ($("auth-error").textContent = errorText(data));
-  showMain(data);
+  const email = $("email").value.trim();
+  const password = $("password").value;
+  if (signupMode && password.length < 8) return showAuthError({ code: "auth/weak-password" });
+  try {
+    await (signupMode ? AtmaAuth.signUp(email, password) : AtmaAuth.logIn(email, password));
+    // onSignInChange (below) takes it from here.
+  } catch (err) {
+    showAuthError(err);
+  }
 };
 
-$("logout").onclick = async () => { await api("/api/logout", {}); signupMode = false; showAuth(); };
+$("google").onclick = async () => {
+  $("auth-error").textContent = "";
+  try { await AtmaAuth.google(); } catch (err) { showAuthError(err); }
+};
+
+$("forgot").onclick = async () => {
+  const email = $("email").value.trim();
+  const box = $("auth-error");
+  if (!email) { box.className = "error"; box.textContent = t("reset_need_email"); return; }
+  try {
+    await AtmaAuth.resetPassword(email);
+  } catch (err) {
+    if (err?.code !== "auth/user-not-found") return showAuthError(err);
+  }
+  // Same message whether or not the account exists, so emails can't be probed.
+  box.className = "info";
+  box.textContent = t("reset_sent");
+};
+
+$("logout").onclick = async () => { await AtmaAuth.logOut(); signupMode = false; };
+
+async function onSignInChange(user) {
+  if (!user) return showAuth();
+  const { ok, data } = await api("/api/me");
+  if (ok) showMain(data);
+  else showAuth();
+}
 
 // ---------- main ----------
 function renderPlan() {
@@ -147,4 +198,4 @@ $("manage").onclick = async () => {
 };
 
 // ---------- start ----------
-api("/api/me").then(({ ok, data }) => (ok ? showMain(data) : showAuth()));
+AtmaAuth.init(onSignInChange);
