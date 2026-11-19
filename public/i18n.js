@@ -59,6 +59,10 @@ const STRINGS = {
     reset_need_email: "Type your email above first, then tap \"Forgot password?\".",
     err_too_many: "Too many attempts. Please wait a few minutes and try again.",
     err_payments_soon: "Upgrades are coming soon. Thank you for your patience! 🙏",
+    err_unauthorized_domain: "Sign-in isn't enabled for this website address yet. (Owner: add this domain in Firebase > Authentication > Settings > Authorized domains.)",
+    err_method_disabled: "This sign-in method isn't turned on yet. (Owner: enable it in Firebase > Authentication > Sign-in method.)",
+    err_popup_blocked: "Your browser blocked the Google sign-in window. Please allow pop-ups for this site and try again.",
+    err_network: "No internet connection. Please check your connection and try again.",
     err_generic: "Something went wrong. Please try again.",
   },
   te: {
@@ -117,6 +121,10 @@ const STRINGS = {
     reset_need_email: "ముందుగా పైన మీ ఈమెయిల్ ఇచ్చి, తర్వాత \"పాస్‌వర్డ్ మర్చిపోయారా?\" నొక్కండి.",
     err_too_many: "చాలా ప్రయత్నాలు జరిగాయి. కొన్ని నిమిషాలు ఆగి మళ్ళీ ప్రయత్నించండి.",
     err_payments_soon: "అప్‌గ్రేడ్ త్వరలో అందుబాటులోకి వస్తుంది. మీ ఓపికకు ధన్యవాదాలు! 🙏",
+    err_unauthorized_domain: "ఈ వెబ్‌సైట్ చిరునామాకు సైన్-ఇన్ ఇంకా ప్రారంభించబడలేదు. (యజమాని: Firebase > Authentication > Settings > Authorized domains లో ఈ డొమైన్ జోడించండి.)",
+    err_method_disabled: "ఈ సైన్-ఇన్ విధానం ఇంకా ఆన్ చేయలేదు. (యజమాని: Firebase > Authentication > Sign-in method లో ఆన్ చేయండి.)",
+    err_popup_blocked: "మీ బ్రౌజర్ Google సైన్-ఇన్ విండోను అడ్డుకుంది. దయచేసి ఈ సైట్‌కు పాప్-అప్‌లు అనుమతించి మళ్ళీ ప్రయత్నించండి.",
+    err_network: "ఇంటర్నెట్ కనెక్షన్ లేదు. దయచేసి కనెక్షన్ చూసి మళ్ళీ ప్రయత్నించండి.",
     err_generic: "ఏదో పొరపాటు జరిగింది. దయచేసి మళ్ళీ ప్రయత్నించండి.",
   },
 };

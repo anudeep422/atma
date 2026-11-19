@@ -30,12 +30,18 @@ const FIREBASE_ERRORS = {
   "auth/wrong-password": "wrong_login",
   "auth/user-not-found": "wrong_login",
   "auth/too-many-requests": "too_many",
+  "auth/unauthorized-domain": "unauthorized_domain",
+  "auth/operation-not-allowed": "method_disabled",
+  "auth/popup-blocked": "popup_blocked",
+  "auth/network-request-failed": "network",
 };
 const showAuthError = (err) => {
   if (err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") return;
   console.error(err);
   $("auth-error").className = "error";
-  $("auth-error").textContent = t("err_" + (FIREBASE_ERRORS[err?.code] || "generic"));
+  const known = FIREBASE_ERRORS[err?.code];
+  // Unknown problems show their code, e.g. "(auth/internal-error)", to make fixing easier.
+  $("auth-error").textContent = known ? t("err_" + known) : `${t("err_generic")} (${err?.code || err?.message || "unknown"})`;
 };
 
 // ---------- auth ----------
