@@ -16,7 +16,7 @@ if (IS_PROD && !stripe) throw new Error("STRIPE_SECRET_KEY is required in produc
 const app = express();
 
 // ---- Stripe webhook (needs the raw body, so it is registered before express.json) ----
-app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), (req, res) => {
+app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async (req, res) => {
   if (!stripe) return res.sendStatus(404);
   let event;
   try {
@@ -27,13 +27,13 @@ app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), (req,
   const obj = event.data.object;
   switch (event.type) {
     case "checkout.session.completed":
-      if (obj.client_reference_id) store.setPremium(Number(obj.client_reference_id), true, obj.customer);
+      if (obj.client_reference_id) await store.setPremium(Number(obj.client_reference_id), true, obj.customer);
       break;
     case "customer.subscription.updated":
-      store.setPremiumByCustomer(obj.customer, ["active", "trialing"].includes(obj.status));
+      await store.setPremiumByCustomer(obj.customer, ["active", "trialing"].includes(obj.status));
       break;
     case "customer.subscription.deleted":
-      store.setPremiumByCustomer(obj.customer, false);
+      await store.setPremiumByCustomer(obj.customer, false);
       break;
   }
   res.json({ received: true });
@@ -48,21 +48,21 @@ function getCookie(req, name) {
   return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
 }
 
-function startSession(res, userId) {
-  const { token, maxAge } = store.createSession(userId);
+async function startSession(res, userId) {
+  const { token, maxAge } = await store.createSession(userId);
   res.setHeader("Set-Cookie",
     `sid=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}${IS_PROD ? "; Secure" : ""}`);
 }
 
-function requireUser(req, res, next) {
-  const user = store.userForSession(getCookie(req, "sid"));
+async function requireUser(req, res, next) {
+  const user = await store.userForSession(getCookie(req, "sid"));
   if (!user) return res.status(401).json({ error: "Please log in." });
   req.user = user;
   next();
 }
 
-const publicUser = (u) => {
-  const used = store.questionsUsedToday(u.id);
+const publicUser = async (u) => {
+  const used = await store.questionsUsedToday(u.id);
   return {
     email: u.email,
     premium: Boolean(u.premium),
@@ -74,39 +74,39 @@ const publicUser = (u) => {
 // ---- routes ----
 app.get("/api/verse-of-the-day", (_req, res) => res.json(verseOfTheDay()));
 
-app.post("/api/signup", (req, res) => {
+app.post("/api/signup", async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const password = String(req.body.password || "");
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: "Please enter a valid email." });
   if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters." });
-  if (store.findUserByEmail(email)) return res.status(409).json({ error: "An account with this email already exists." });
-  const id = store.createUser(email, password);
-  startSession(res, id);
-  res.json(publicUser(store.findUserById(id)));
+  if (await store.findUserByEmail(email)) return res.status(409).json({ error: "An account with this email already exists." });
+  const id = await store.createUser(email, password);
+  await startSession(res, id);
+  res.json(await publicUser(await store.findUserById(id)));
 });
 
-app.post("/api/login", (req, res) => {
-  const user = store.findUserByEmail(String(req.body.email || "").trim().toLowerCase());
+app.post("/api/login", async (req, res) => {
+  const user = await store.findUserByEmail(String(req.body.email || "").trim().toLowerCase());
   if (!user || !store.checkPassword(String(req.body.password || ""), user.pass_hash)) {
     return res.status(401).json({ error: "Wrong email or password." });
   }
-  startSession(res, user.id);
-  res.json(publicUser(user));
+  await startSession(res, user.id);
+  res.json(await publicUser(user));
 });
 
-app.post("/api/logout", (req, res) => {
-  store.deleteSession(getCookie(req, "sid"));
+app.post("/api/logout", async (req, res) => {
+  await store.deleteSession(getCookie(req, "sid"));
   res.setHeader("Set-Cookie", "sid=; Path=/; Max-Age=0");
   res.json({ ok: true });
 });
 
-app.get("/api/me", requireUser, (req, res) => res.json(publicUser(req.user)));
+app.get("/api/me", requireUser, async (req, res) => res.json(await publicUser(req.user)));
 
 app.post("/api/ask", requireUser, async (req, res) => {
   const question = String(req.body.question || "").trim().slice(0, 2000);
   if (!question) return res.status(400).json({ error: "Please write your question." });
 
-  if (!req.user.premium && store.questionsUsedToday(req.user.id) >= FREE_PER_DAY) {
+  if (!req.user.premium && await store.questionsUsedToday(req.user.id) >= FREE_PER_DAY) {
     return res.status(402).json({ error: "limit", message: `You've used your ${FREE_PER_DAY} free questions today.` });
   }
 
@@ -118,8 +118,8 @@ app.post("/api/ask", requireUser, async (req, res) => {
 
   try {
     const result = await askGuide(question, history);
-    store.recordQuestion(req.user.id);
-    res.json({ ...result, me: publicUser(req.user) });
+    await store.recordQuestion(req.user.id);
+    res.json({ ...result, me: await publicUser(req.user) });
   } catch (err) {
     if (err instanceof Anthropic.RateLimitError) {
       return res.status(503).json({ error: "The guide is busy right now. Please try again in a minute." });
@@ -132,7 +132,7 @@ app.post("/api/ask", requireUser, async (req, res) => {
 app.post("/api/checkout", requireUser, async (req, res) => {
   if (!stripe) {
     // Demo mode (local only): upgrade instantly so you can test the premium experience.
-    store.setPremium(req.user.id, true);
+    await store.setPremium(req.user.id, true);
     return res.json({ url: "/app.html?upgraded=demo" });
   }
   const session = await stripe.checkout.sessions.create({

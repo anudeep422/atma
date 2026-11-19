@@ -1,9 +1,14 @@
-import { DatabaseSync } from "node:sqlite";
+import { createClient } from "@libsql/client";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
-export const db = new DatabaseSync(process.env.DB_PATH || "atma.db");
+// Locally: a plain SQLite file (no setup needed).
+// Online: a free Turso database, set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.
+export const db = createClient({
+  url: process.env.TURSO_DATABASE_URL || "file:atma.db",
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
 
-db.exec(`
+await db.executeMultiple(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT UNIQUE NOT NULL,
@@ -26,6 +31,8 @@ db.exec(`
 `);
 
 const SESSION_DAYS = 30;
+const one = async (sql, args = []) => (await db.execute({ sql, args })).rows[0] ?? null;
+const run = (sql, args = []) => db.execute({ sql, args });
 
 export function hashPassword(password) {
   const salt = randomBytes(16).toString("hex");
@@ -38,49 +45,46 @@ export function checkPassword(password, stored) {
   return timingSafeEqual(candidate, Buffer.from(hash, "hex"));
 }
 
-export function createUser(email, password) {
-  const info = db.prepare("INSERT INTO users (email, pass_hash) VALUES (?, ?)").run(email, hashPassword(password));
+export async function createUser(email, password) {
+  const info = await run("INSERT INTO users (email, pass_hash) VALUES (?, ?)", [email, hashPassword(password)]);
   return Number(info.lastInsertRowid);
 }
 
-export const findUserByEmail = (email) => db.prepare("SELECT * FROM users WHERE email = ?").get(email);
-export const findUserById = (id) => db.prepare("SELECT * FROM users WHERE id = ?").get(id);
+export const findUserByEmail = (email) => one("SELECT * FROM users WHERE email = ?", [email]);
+export const findUserById = (id) => one("SELECT * FROM users WHERE id = ?", [id]);
 
-export function createSession(userId) {
+export async function createSession(userId) {
   const token = randomBytes(32).toString("hex");
   const expires = Date.now() + SESSION_DAYS * 86_400_000;
-  db.prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)").run(token, userId, expires);
+  await run("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)", [token, userId, expires]);
   return { token, maxAge: SESSION_DAYS * 86_400 };
 }
 
-export function userForSession(token) {
+export async function userForSession(token) {
   if (!token) return null;
-  const row = db.prepare("SELECT user_id, expires_at FROM sessions WHERE token = ?").get(token);
-  if (!row || row.expires_at < Date.now()) return null;
+  const row = await one("SELECT user_id, expires_at FROM sessions WHERE token = ?", [token]);
+  if (!row || Number(row.expires_at) < Date.now()) return null;
   return findUserById(row.user_id);
 }
 
-export const deleteSession = (token) => db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
+export const deleteSession = (token) => run("DELETE FROM sessions WHERE token = ?", [token ?? ""]);
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export function questionsUsedToday(userId) {
-  return db.prepare("SELECT count FROM usage WHERE user_id = ? AND day = ?").get(userId, today())?.count ?? 0;
+export async function questionsUsedToday(userId) {
+  const row = await one("SELECT count FROM usage WHERE user_id = ? AND day = ?", [userId, today()]);
+  return Number(row?.count ?? 0);
 }
 
-export function recordQuestion(userId) {
-  db.prepare(`INSERT INTO usage (user_id, day, count) VALUES (?, ?, 1)
-              ON CONFLICT(user_id, day) DO UPDATE SET count = count + 1`).run(userId, today());
-}
+export const recordQuestion = (userId) =>
+  run(`INSERT INTO usage (user_id, day, count) VALUES (?, ?, 1)
+       ON CONFLICT(user_id, day) DO UPDATE SET count = count + 1`, [userId, today()]);
 
 export function setPremium(userId, premium, stripeCustomerId) {
-  if (stripeCustomerId) {
-    db.prepare("UPDATE users SET premium = ?, stripe_customer_id = ? WHERE id = ?").run(premium ? 1 : 0, stripeCustomerId, userId);
-  } else {
-    db.prepare("UPDATE users SET premium = ? WHERE id = ?").run(premium ? 1 : 0, userId);
-  }
+  return stripeCustomerId
+    ? run("UPDATE users SET premium = ?, stripe_customer_id = ? WHERE id = ?", [premium ? 1 : 0, stripeCustomerId, userId])
+    : run("UPDATE users SET premium = ? WHERE id = ?", [premium ? 1 : 0, userId]);
 }
 
-export function setPremiumByCustomer(stripeCustomerId, premium) {
-  db.prepare("UPDATE users SET premium = ? WHERE stripe_customer_id = ?").run(premium ? 1 : 0, stripeCustomerId);
-}
+export const setPremiumByCustomer = (stripeCustomerId, premium) =>
+  run("UPDATE users SET premium = ? WHERE stripe_customer_id = ?", [premium ? 1 : 0, stripeCustomerId]);

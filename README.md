@@ -10,7 +10,7 @@ real Upanishad verses, plus one small daily practice.
 
 ## Run it on your computer
 
-1. Install Node.js 22 or newer from https://nodejs.org
+1. Install Node.js 20.12 or newer from https://nodejs.org
 2. In this folder:
    ```bash
    npm install
@@ -47,7 +47,16 @@ Without keys it runs in **demo mode** (sample answers, free upgrades), so you ca
 Easiest: push this folder to GitHub, then create a **Web Service** on https://render.com (or Railway):
 - Build command: `npm install` · Start command: `npm start`
 - Add the `.env` values as environment variables, plus `NODE_ENV=production` and `APP_URL=https://your-app.onrender.com`
-- Add a **persistent disk** and set `DB_PATH=/data/atma.db` so user accounts survive restarts.
+- Render's free plan works. Accounts are stored in a free **Turso** database (next section), not on Render's disk.
+
+### 4. Free database (Turso)
+1. Sign up at https://turso.tech with GitHub (free plan: 5 GB, plenty for this app).
+2. Click **Create Database**, name it `atma`, pick the region closest to your users.
+3. Copy the database URL (`libsql://atma-<you>.turso.io`) → `TURSO_DATABASE_URL`.
+4. Click **Create Token** → copy it → `TURSO_AUTH_TOKEN`.
+5. Add both on Render under Environment. The tables are created automatically on first start.
+
+Locally you can leave these empty: the app uses a file called `atma.db`.
 
 ## Files
 | File | What it does |
@@ -55,7 +64,7 @@ Easiest: push this folder to GitHub, then create a **Web Service** on https://re
 | `server.js` | Web server: accounts, daily limit, Stripe checkout & webhook |
 | `guide.js` | The AI guide (Claude) and its instructions |
 | `verses.js` | The curated Upanishad verse library: add more verses here |
-| `db.js` | SQLite database (users, sessions, usage) |
+| `db.js` | Database (users, sessions, usage): local file or Turso |
 | `public/` | Landing page and app UI |
 
 ## Before launching publicly
