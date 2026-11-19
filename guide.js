@@ -110,26 +110,75 @@ async function askClaude(question, history, note) {
   }
 }
 
+// Gemini free tier: retries, a lighter backup model, and low "thinking" for speed and quota.
+let geminiThinking = (process.env.GEMINI_THINKING || "LOW").toUpperCase(); // "LOW", "MINIMAL" or "OFF"
+let backupModel; // found automatically: the newest "flash-lite" model available to this key
+
+async function findBackupModel() {
+  if (backupModel !== undefined) return backupModel;
+  backupModel = process.env.GEMINI_FALLBACK_MODEL || null;
+  if (backupModel) return backupModel;
+  try {
+    const names = [];
+    for await (const m of await gemini.models.list()) names.push(String(m.name).replace(/^models\//, ""));
+    backupModel = names
+      .filter((n) => /flash-lite/.test(n) && !/preview|exp|tts|image|live|audio/.test(n) && n !== GEMINI_MODEL)
+      .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0] ?? null;
+  } catch (err) {
+    console.warn("Gemini: could not list models:", err?.status, String(err?.message).slice(0, 200));
+    backupModel = null;
+  }
+  console.log(`Gemini backup model: ${backupModel ?? "none"}`);
+  return backupModel;
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const isBusy = (err) => err?.status === 429 || err?.status === 503 || err?.status === 500;
+
+async function geminiCall(model, contents) {
+  const config = {
+    systemInstruction: SYSTEM_PROMPT,
+    responseMimeType: "application/json",
+    responseJsonSchema: GEMINI_SCHEMA,
+  };
+  if (geminiThinking !== "OFF") config.thinkingConfig = { thinkingLevel: geminiThinking };
+  try {
+    return await gemini.models.generateContent({ model, contents, config });
+  } catch (err) {
+    // Some models don't accept a thinking level: stop sending it and try once more.
+    if (err?.status === 400 && /think/i.test(String(err?.message)) && config.thinkingConfig) {
+      console.warn(`Gemini: ${model} rejected thinkingLevel, continuing without it`);
+      geminiThinking = "OFF";
+      return geminiCall(model, contents);
+    }
+    throw err;
+  }
+}
+
 async function askGemini(question, history, note) {
   const contents = [
     ...history.slice(-6).map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
     { role: "user", parts: [{ text: question }, { text: note }] },
   ];
-  try {
-    const response = await gemini.models.generateContent({
-      model: GEMINI_MODEL,
-      contents,
-      config: {
-        systemInstruction: SYSTEM_PROMPT,
-        responseMimeType: "application/json",
-        responseJsonSchema: GEMINI_SCHEMA,
-      },
-    });
-    return response.text || null; // empty when Gemini's safety filter blocks the reply
-  } catch (err) {
-    if (err?.status === 429 || err?.status === 503) throw new GuideBusyError(err.message);
-    throw err;
+  // Plan: main model -> backup (lighter) model -> main model again after a short pause.
+  const attempts = [GEMINI_MODEL, "backup", GEMINI_MODEL];
+  let lastErr;
+  for (let i = 0; i < attempts.length; i++) {
+    const model = attempts[i] === "backup" ? await findBackupModel() : attempts[i];
+    if (!model) continue;
+    try {
+      const started = Date.now();
+      const response = await geminiCall(model, contents);
+      console.log(`Gemini answered with ${model} in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+      return response.text || null; // empty when Gemini's safety filter blocks the reply
+    } catch (err) {
+      lastErr = err;
+      console.warn(`Gemini ${model} failed: status=${err?.status} ${String(err?.message).slice(0, 300)}`);
+      if (!isBusy(err)) throw err;
+      if (i === 1) await sleep(2500);
+    }
   }
+  throw new GuideBusyError(String(lastErr?.message));
 }
 
 function declined(lang) {

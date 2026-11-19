@@ -43,7 +43,10 @@ add it on Render as `GEMINI_API_KEY`. No card needed.
 - The free tier has daily/per-minute limits; when hit, users see "busy, try again in a minute".
 - On the free tier Google may use prompts to improve its products. Mention this in your privacy policy,
   and switch to a paid tier (or Claude) once you have paying subscribers.
-- Optional: `GEMINI_MODEL` to choose a different Gemini model (default `gemini-3.8-flash`).
+- When Gemini is busy, the app retries automatically and falls back to the newest lighter "flash-lite" model.
+  Render's Logs show `Gemini answered with <model> in <n>s` or the reason for each failure.
+- Optional settings: `GEMINI_MODEL` (default `gemini-3.8-flash`), `GEMINI_FALLBACK_MODEL` (default: picked automatically),
+  `GEMINI_THINKING` = `LOW` (default, faster), `MINIMAL` (fastest) or `OFF`.
 
 **Paid, best quality:** create a key at https://platform.claude.com and add it as `ANTHROPIC_API_KEY`
 (roughly 1–3 US cents per answer). If both keys are set, Claude is used.
