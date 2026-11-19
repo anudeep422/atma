@@ -126,25 +126,15 @@ table.stats th:first-child, table.stats td:first-child { text-align: left; }
 .tabs button { flex: 1; border: 0; background: none; padding: 9px 6px; border-radius: 999px; cursor: pointer; font: 600 14px var(--sans); color: var(--muted); }
 .tabs button.active { background: var(--saffron); color: #fff; }
 /* coach */
-.area-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-.area-chips button { background: var(--card); border: 1px solid var(--line); color: var(--ink); border-radius: 999px; padding: 8px 14px; cursor: pointer; font: 500 14px var(--sans); }
-.area-chips button.chosen { border-color: var(--saffron); background: var(--verse-bg); font-weight: 600; }
-.dots { display: flex; gap: 6px; margin: 12px 0; align-items: center; flex-wrap: wrap; }
-.dot { box-sizing: border-box; flex: none; line-height: 1; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; font-size: 13px; color: var(--muted); background: var(--card); }
-.dot.done { background: var(--saffron); color: #fff; border-color: var(--saffron); }
-.dot.missed { background: var(--line); }
-.dot.today { border: 2px solid var(--saffron); color: var(--ink); font-weight: 600; }
 .card .lbl, .msg .lbl { font: 600 12px var(--sans); text-transform: uppercase; letter-spacing: .04em; color: var(--saffron-dark); }
-.sankalpa p { font: 600 22px/1.4 var(--serif); margin: 6px 0 0; }
-.today { margin: 16px 0; }
-.today textarea { width: 100%; min-height: 60px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: 15px var(--sans); margin-top: 10px; }
-.checkin-buttons { display: flex; gap: 8px; margin-top: 8px; }
-.checkin-buttons .btn { flex: 1; }
 .practice { background: var(--bg); border: 1px dashed var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 10px; }
 .practice-head { font-weight: 600; }
 .practice-src { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .practice p { margin: 8px 0 0; }
-.history { margin: 16px 0; }
-.history summary { cursor: pointer; color: var(--muted); }
-.hist-item { border-bottom: 1px solid var(--line); padding: 10px 0; }
-.hist-item p { margin: 6px 0 0; color: var(--muted); white-space: pre-wrap; }
+
+/* coach conversation */
+.commit { margin-bottom: 14px; border-color: var(--saffron); }
+.commit-action { font-weight: 600; margin: 6px 0 4px; }
+.commit-sankalpa { font: italic 500 18px/1.4 var(--serif); color: var(--saffron-dark); margin: 0; }
+#coach .msg.guide p { margin: 0 0 8px; white-space: pre-wrap; }
+#coach-quick button { white-space: normal; text-align: left; }

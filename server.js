@@ -134,76 +134,83 @@ app.delete("/api/journal/:id", requireUser, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ---- Coach ----
-// One check-in per calendar day (UTC). Set COACH_ONE_PER_DAY=false to allow more (useful for testing).
-const ONE_CHECKIN_PER_DAY = process.env.COACH_ONE_PER_DAY !== "false";
+// ---- Coach: an interactive conversation ----
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
-function coachView(program) {
-  if (!program) return { program: null };
-  const n = program.checkins?.length ?? 0;
-  const checkedInToday = ONE_CHECKIN_PER_DAY && program.checkins?.at(-1)?.date === todayStr();
-  return {
-    program: coach.hydrate(program),
-    day: Math.min(n + 1, coach.PLAN_DAYS),
-    completed: program.status === "completed",
-    checkedInToday,
-  };
+function newChat(lang) {
+  const g = coach.greeting(lang);
+  return { lang, commitment: null, lastFollowUp: null, messages: [{ role: "coach", text: g.text, quickReplies: g.quickReplies, at: new Date().toISOString() }] };
 }
 
-function aiError(res, err, lang) {
+const chatView = (chat) => ({ commitment: chat.commitment, messages: chat.messages.map(coach.hydrateMessage) });
+
+function aiError(res, err) {
   const detail = err.detail ?? describeAiError(err);
   if (err instanceof GuideBusyError) {
     console.warn("Coach busy:", detail);
     return res.status(503).json({ error: "The guide is busy right now. Please try again in a minute.", code: "busy", detail });
   }
-  if (err.declined) return res.status(400).json({ error: "The coach can't help with that goal. Please try wording it differently.", code: "generic" });
   console.error("coach failed:", err);
   res.status(500).json({ error: "Something went wrong. Please try again.", code: "generic", detail });
 }
 
-app.get("/api/coach", requireUser, async (req, res) => res.json(coachView(await store.getCoach(req.user.id))));
+// Opening the coach: start a conversation, or ask about yesterday's step (once per day).
+app.get("/api/coach", requireUser, async (req, res) => {
+  const lang = req.query.lang === "te" ? "te" : "en";
+  let chat = await store.getChat(req.user.id);
+  if (!chat) {
+    chat = newChat(lang);
+    await store.saveChat(req.user.id, chat);
+  } else if (chat.commitment && chat.commitment.date < todayStr() && chat.lastFollowUp !== todayStr()) {
+    const f = coach.followUpMessage(chat.commitment, lang);
+    chat.messages.push({ role: "coach", text: f.text, quickReplies: f.quickReplies, at: new Date().toISOString() });
+    chat.lastFollowUp = todayStr();
+    await store.saveChat(req.user.id, chat);
+    store.bumpStats({ coach_followups: 1 }).catch(() => {});
+  }
+  res.json(chatView(chat));
+});
 
-app.post("/api/coach/start", requireUser, async (req, res) => {
-  const area = coach.AREAS.includes(req.body.area) ? req.body.area : null;
-  const goal = String(req.body.goal || "").trim().slice(0, 500);
+app.post("/api/coach/message", requireUser, async (req, res) => {
   const lang = req.body.lang === "te" ? "te" : "en";
-  if (!area || goal.length < 3) return res.status(400).json({ error: "Please choose an area and describe your goal.", code: "coach_need_goal" });
+  const text = String(req.body.text || "").trim().slice(0, 2000);
+  if (!text) return res.status(400).json({ error: "Please write a message." });
+  const chat = (await store.getChat(req.user.id)) ?? newChat(lang);
   try {
-    const plan = await coach.createPlan({ area, goal, lang });
-    const existing = await store.getCoach(req.user.id);
-    if (existing) await store.endCoach(req.user.id); // starting a new goal archives the old one
-    await store.startCoach(req.user.id, { area, goal, lang, ...plan });
-    store.bumpStats({ coach_started: 1, [`coach_${area}`]: 1 }).catch(() => {});
-    res.json(coachView(await store.getCoach(req.user.id)));
+    const turn = await coach.coachTurn(chat, text, lang);
+    const now = new Date().toISOString();
+    const isNewConversation = !chat.messages.some((m) => m.role === "user");
+    chat.messages.push({ role: "user", text, at: now });
+    chat.messages.push({
+      role: "coach", text: turn.message, verseIds: turn.verseIds, practiceIds: turn.practiceIds,
+      quickReplies: turn.quickReplies, provider: turn.provider, at: now,
+    });
+    if (turn.commitment) chat.commitment = { ...turn.commitment, date: todayStr() };
+    chat.topics = turn.topics;
+    chat.lang = lang;
+    await store.saveChat(req.user.id, chat);
+    const topicCounts = isNewConversation
+      ? Object.fromEntries((turn.topics.length ? turn.topics : ["none"]).map((t) => [`coachtopic_${t.replace(/-/g, "_")}`, 1]))
+      : {};
+    store.bumpStats({
+      coach_messages: 1, [`coach_by_${turn.provider}`]: 1,
+      ...(isNewConversation ? { coach_conversations: 1 } : {}),
+      ...(turn.commitment ? { coach_commitments: 1 } : {}),
+      ...topicCounts,
+    }).catch(() => {});
+    res.json(chatView(chat));
   } catch (err) {
-    aiError(res, err, lang);
+    aiError(res, err);
   }
 });
 
-app.post("/api/coach/checkin", requireUser, async (req, res) => {
-  const program = await store.getCoach(req.user.id);
-  if (!program) return res.status(404).json({ error: "No active plan." });
-  const view = coachView(program);
-  if (view.completed) return res.status(400).json({ error: "This plan is complete." });
-  if (view.checkedInToday) return res.status(400).json({ error: "You've already checked in today.", code: "coach_tomorrow" });
+// Start over: the old conversation is kept in history.
+app.post("/api/coach/reset", requireUser, async (req, res) => {
   const lang = req.body.lang === "te" ? "te" : "en";
-  const done = Boolean(req.body.done);
-  const note = String(req.body.note || "").trim().slice(0, 1000);
-  try {
-    const { message, provider } = await coach.coachReply({ program, day: view.day, done, note, lang });
-    const completed = view.day >= coach.PLAN_DAYS;
-    await store.addCheckin(req.user.id, { day: view.day, done, note, reply: message, provider, date: todayStr() }, completed);
-    store.bumpStats({ coach_checkins: 1, ...(completed ? { coach_completed: 1 } : {}) }).catch(() => {});
-    res.json(coachView(await store.getCoach(req.user.id)));
-  } catch (err) {
-    aiError(res, err, lang);
-  }
-});
-
-app.post("/api/coach/stop", requireUser, async (req, res) => {
-  await store.endCoach(req.user.id);
-  res.json({ program: null });
+  await store.endChat(req.user.id);
+  const chat = newChat(lang);
+  await store.saveChat(req.user.id, chat);
+  res.json(chatView(chat));
 });
 
 // 👍 / 👎 on an answer

@@ -51,67 +51,21 @@
       <button data-tab="journal" data-i18n="tab_journal">📔 Journal</button>
     </div>
 
-    <!-- Coach: 7-day plans with daily check-ins -->
+    <!-- Coach: an interactive conversation -->
     <section id="coach" class="hidden">
-      <p id="coach-loading" class="thinking" data-i18n="loading">Loading…</p>
-
-      <!-- Start a plan -->
-      <div id="coach-start" class="hidden">
-        <h2 style="margin:8px 0;text-align:left" data-i18n="coach_title">Your scripture coach</h2>
-        <p style="color:var(--muted);margin-top:0" data-i18n="coach_intro"></p>
-        <div class="area-chips" id="area-chips">
-          <button type="button" data-area="relationships" data-i18n="area_relationships"></button>
-          <button type="button" data-area="emotions" data-i18n="area_emotions"></button>
-          <button type="button" data-area="discipline" data-i18n="area_discipline"></button>
-          <button type="button" data-area="career" data-i18n="area_career"></button>
-          <button type="button" data-area="wealth" data-i18n="area_wealth"></button>
-        </div>
-        <p id="wealth-note" class="hidden" style="font-size:13px;color:var(--muted)" data-i18n="wealth_note"></p>
-        <form id="coach-form" class="ask" style="position:static">
-          <textarea id="coach-goal" data-i18n-ph="goal_ph" maxlength="500" required></textarea>
-          <div id="coach-error" class="error"></div>
-          <button id="coach-create" class="btn" style="width:100%" data-i18n="create_plan">Create my 7-day plan</button>
-        </form>
+      <div id="commit-banner" class="card commit hidden">
+        <div class="lbl" data-i18n="your_step">Your current step</div>
+        <p id="commit-action" class="commit-action"></p>
+        <p id="commit-sankalpa" class="commit-sankalpa"></p>
       </div>
-
-      <!-- Active / completed plan -->
-      <div id="coach-plan" class="hidden">
-        <div class="status">
-          <h2 id="plan-title" style="margin:0;text-align:left"></h2>
-          <span id="plan-day" class="badge"></span>
-        </div>
-        <div id="plan-dots" class="dots"></div>
-        <div class="card sankalpa">
-          <div class="lbl" data-i18n="sankalpa">Your sankalpa</div>
-          <p id="plan-sankalpa"></p>
-        </div>
-        <p id="plan-why" style="color:var(--muted)"></p>
-        <div id="plan-verses"></div>
-
-        <div id="today-box" class="card today">
-          <div class="lbl" id="today-label"></div>
-          <p id="today-action" style="font-weight:600"></p>
-          <div id="today-practice"></div>
-          <div id="checkin-box">
-            <textarea id="checkin-note" data-i18n-ph="checkin_ph" maxlength="1000"></textarea>
-            <div class="checkin-buttons">
-              <button id="checkin-done" class="btn" type="button" data-i18n="did_it">✅ I did it</button>
-              <button id="checkin-skip" class="btn ghost" type="button" data-i18n="not_today">Not today</button>
-            </div>
-            <div id="checkin-error" class="error"></div>
-          </div>
-          <p id="checkin-wait" class="hidden" style="color:var(--muted)" data-i18n="come_back"></p>
-        </div>
-
-        <div id="coach-reply" class="msg guide hidden"></div>
-        <div id="plan-complete" class="card hidden" style="text-align:center">
-          <h3 data-i18n="plan_done_title"></h3>
-          <button id="coach-new" class="btn" type="button" data-i18n="new_goal">Start a new goal</button>
-        </div>
-
-        <details class="history"><summary data-i18n="past_checkins">Past check-ins</summary><div id="plan-history"></div></details>
-        <p style="text-align:center"><button id="coach-stop" class="link" type="button" data-i18n="end_plan">End this plan</button></p>
-      </div>
+      <div id="coach-chat" class="chat"></div>
+      <div id="coach-quick" class="suggestions"></div>
+      <form id="coach-form" class="ask">
+        <textarea id="coach-input" data-i18n-ph="coach_ph" maxlength="2000" required></textarea>
+        <div id="coach-error" class="error"></div>
+        <button id="coach-send" class="btn" style="width:100%" data-i18n="send">Send</button>
+      </form>
+      <p style="text-align:center"><button id="coach-reset" class="link" type="button" data-i18n="new_conversation">Start a new conversation</button></p>
     </section>
 
     <!-- Journal: past questions and answers -->

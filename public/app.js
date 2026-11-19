@@ -311,9 +311,9 @@ function showTab(name) {
 }
 document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
 
-// ---------- coach ----------
-let coachState = null;
-let chosenArea = null;
+// ---------- coach (conversation) ----------
+let coachChat = null;
+let coachBusy = false;
 
 function practiceEl(p) {
   const te = LANG === "te";
@@ -332,138 +332,106 @@ function practiceEl(p) {
 }
 
 async function loadCoach() {
-  $("coach-loading").classList.remove("hidden");
-  $("coach-start").classList.add("hidden");
-  $("coach-plan").classList.add("hidden");
-  const { ok, data } = await api("/api/coach");
-  $("coach-loading").classList.add("hidden");
-  if (!ok) return;
-  coachState = data;
+  if (coachChat) return renderCoach();
+  $("coach-chat").innerHTML = "";
+  const wait = document.createElement("p");
+  wait.className = "thinking";
+  wait.textContent = t("loading");
+  $("coach-chat").appendChild(wait);
+  const { ok, data } = await api(`/api/coach?lang=${LANG}`);
+  if (!ok) { wait.textContent = errorText(data); return; }
+  coachChat = data;
   renderCoach();
 }
 
-function renderCoach() {
-  const st = coachState;
-  if (!st?.program) {
-    $("coach-start").classList.remove("hidden");
-    $("coach-plan").classList.add("hidden");
+function coachMessageEl(m) {
+  const el = document.createElement("div");
+  el.className = m.role === "user" ? "msg user" : "msg guide";
+  if (m.role === "user") { el.textContent = m.text; return el; }
+  // Verse first, then the coach's words (which refer to it), then any practice.
+  (m.verses ?? []).forEach((v) => el.appendChild(verseEl(v)));
+  const p = document.createElement("p");
+  p.textContent = m.text;
+  el.appendChild(p);
+  (m.practices ?? []).forEach((pr) => el.appendChild(practiceEl(pr)));
+  return el;
+}
+
+function renderCoach(scroll = true) {
+  const c = coachChat;
+  if (!c) return;
+  // Current step banner
+  $("commit-banner").classList.toggle("hidden", !c.commitment);
+  if (c.commitment) {
+    $("commit-action").textContent = c.commitment.action;
+    $("commit-sankalpa").textContent = `“${c.commitment.sankalpa}”`;
+  }
+  // Messages
+  const box = $("coach-chat");
+  box.innerHTML = "";
+  c.messages.forEach((m) => box.appendChild(coachMessageEl(m)));
+  // Quick replies from the latest coach message
+  const last = c.messages.at(-1);
+  const quick = $("coach-quick");
+  quick.innerHTML = "";
+  if (last?.role === "coach") {
+    (last.quickReplies ?? []).forEach((q) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = q;
+      b.onclick = () => sendCoach(q);
+      quick.appendChild(b);
+    });
+  }
+  if (scroll) box.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function sendCoach(text) {
+  text = String(text || "").trim();
+  if (!text || coachBusy) return;
+  coachBusy = true;
+  $("coach-error").textContent = "";
+  $("coach-send").disabled = true;
+  $("coach-quick").innerHTML = "";
+  $("coach-chat").appendChild(coachMessageEl({ role: "user", text }));
+  const thinking = coachMessageEl({ role: "coach", text: t("coach_thinking") });
+  thinking.querySelector("p").className = "thinking";
+  $("coach-chat").appendChild(thinking);
+  thinking.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  const { ok, data } = await api("/api/coach/message", { text, lang: LANG });
+  coachBusy = false;
+  $("coach-send").disabled = false;
+  if (!ok) {
+    thinking.remove();
+    $("coach-chat").lastElementChild?.remove(); // the unsent user bubble
+    $("coach-input").value = text;
+    $("coach-error").textContent = errorText(data);
+    renderCoach(false);
     return;
   }
-  const pg = st.program;
-  $("coach-start").classList.add("hidden");
-  $("coach-plan").classList.remove("hidden");
-  $("plan-title").textContent = pg.title;
-  $("plan-day").textContent = st.completed ? t("completed") : t("day_of", { n: st.day, m: pg.days.length });
-  $("plan-sankalpa").textContent = pg.sankalpa;
-  $("plan-why").textContent = pg.why;
-
-  // Progress dots: ✓ done, · not done, ○ upcoming
-  const dots = $("plan-dots");
-  dots.innerHTML = "";
-  pg.days.forEach((_, i) => {
-    const c = pg.checkins[i];
-    const d = document.createElement("span");
-    d.className = "dot " + (c ? (c.done ? "done" : "missed") : i + 1 === st.day && !st.completed ? "today" : "");
-    d.textContent = c ? (c.done ? "✓" : "–") : i + 1;
-    dots.appendChild(d);
-  });
-
-  const vbox = $("plan-verses");
-  vbox.innerHTML = "";
-  pg.verses.forEach((v) => vbox.appendChild(verseEl(v)));
-
-  // Today's action (or the last day's, once complete)
-  const idx = Math.min(st.day, pg.days.length) - 1;
-  const today = pg.days[idx];
-  $("today-box").classList.toggle("hidden", st.completed);
-  $("today-label").textContent = t("today_action", { n: st.day });
-  $("today-action").textContent = today.action;
-  const tp = $("today-practice");
-  tp.innerHTML = "";
-  const practice = today.practice ?? pg.practices[idx % Math.max(pg.practices.length, 1)];
-  if (practice) tp.appendChild(practiceEl(practice));
-  $("checkin-box").classList.toggle("hidden", st.checkedInToday);
-  $("checkin-wait").classList.toggle("hidden", !st.checkedInToday);
-
-  // Latest coach reply
-  const last = pg.checkins.at(-1);
-  const reply = $("coach-reply");
-  reply.classList.toggle("hidden", !last);
-  if (last) {
-    reply.innerHTML = "";
-    const label = document.createElement("div");
-    label.className = "lbl";
-    label.textContent = t("coach_says");
-    const p = document.createElement("p");
-    p.textContent = last.reply;
-    reply.append(label, p);
-  }
-  $("plan-complete").classList.toggle("hidden", !st.completed);
-
-  const hist = $("plan-history");
-  hist.innerHTML = "";
-  pg.checkins.forEach((c) => {
-    const item = document.createElement("div");
-    item.className = "hist-item";
-    const h = document.createElement("b");
-    h.textContent = `${t("day")} ${c.day}: ${c.done ? "✅" : "–"} ${c.note ? "· " + c.note : ""}`;
-    const p = document.createElement("p");
-    p.textContent = c.reply;
-    item.append(h, p);
-    hist.appendChild(item);
-  });
-  if (!pg.checkins.length) hist.textContent = t("no_checkins");
+  coachChat = data;
+  renderCoach();
 }
 
-document.querySelectorAll("#area-chips button").forEach((b) => {
-  b.onclick = () => {
-    chosenArea = b.dataset.area;
-    document.querySelectorAll("#area-chips button").forEach((x) => x.classList.toggle("chosen", x === b));
-    $("wealth-note").classList.toggle("hidden", chosenArea !== "wealth");
-  };
+$("coach-form").onsubmit = (e) => {
+  e.preventDefault();
+  const text = $("coach-input").value;
+  $("coach-input").value = "";
+  sendCoach(text);
+};
+// Enter sends on computers; Shift+Enter makes a new line.
+$("coach-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !("ontouchstart" in window)) { e.preventDefault(); $("coach-form").requestSubmit(); }
 });
 
-$("coach-form").onsubmit = async (e) => {
-  e.preventDefault();
-  $("coach-error").textContent = "";
-  if (!chosenArea) { $("coach-error").textContent = t("err_coach_need_area"); return; }
-  const btn = $("coach-create");
-  btn.disabled = true;
-  btn.textContent = t("creating_plan");
-  const { ok, data } = await api("/api/coach/start", { area: chosenArea, goal: $("coach-goal").value, lang: LANG });
-  btn.disabled = false;
-  btn.textContent = t("create_plan");
-  if (!ok) { $("coach-error").textContent = errorText(data); return; }
-  $("coach-goal").value = "";
-  coachState = data;
-  renderCoach();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+$("coach-reset").onclick = async () => {
+  if (!confirm(t("confirm_new_conversation"))) return;
+  const { ok, data } = await api("/api/coach/reset", { lang: LANG });
+  if (ok) { coachChat = data; renderCoach(); }
 };
 
-async function checkin(done) {
-  $("checkin-error").textContent = "";
-  ["checkin-done", "checkin-skip"].forEach((id) => ($(id).disabled = true));
-  $("checkin-wait").classList.add("hidden");
-  const { ok, data } = await api("/api/coach/checkin", { done, note: $("checkin-note").value, lang: LANG });
-  ["checkin-done", "checkin-skip"].forEach((id) => ($(id).disabled = false));
-  if (!ok) { $("checkin-error").textContent = errorText(data); return; }
-  $("checkin-note").value = "";
-  coachState = data;
-  renderCoach();
-  $("coach-reply").scrollIntoView({ behavior: "smooth", block: "center" });
-}
-$("checkin-done").onclick = () => checkin(true);
-$("checkin-skip").onclick = () => checkin(false);
-
-async function stopPlan() {
-  await api("/api/coach/stop", {});
-  coachState = { program: null };
-  renderCoach();
-}
-$("coach-stop").onclick = () => { if (confirm(t("confirm_end_plan"))) stopPlan(); };
-$("coach-new").onclick = stopPlan;
-
-onLangChange.push(() => { if (currentTab === "coach" && coachState) renderCoach(); });
+onLangChange.push(() => { if (currentTab === "coach" && coachChat) renderCoach(false); });
 
 // ---------- start ----------
 AtmaAuth.init(onSignInChange);
