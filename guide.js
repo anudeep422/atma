@@ -16,6 +16,13 @@ export const AI_PROVIDER = claude ? `Claude (${CLAUDE_MODEL})` : gemini ? `Gemin
 /** Thrown when the AI is rate-limited (e.g. Gemini free-tier daily/minute limits). */
 export class GuideBusyError extends Error {}
 
+/** Short, safe description of an AI error (status + Google's/Anthropic's message), shown to help fix problems. */
+export function describeAiError(err) {
+  let msg = String(err?.message ?? err);
+  try { msg = JSON.parse(msg)?.error?.message ?? msg; } catch {}
+  return `${err?.status ?? ""} ${msg}`.trim().replace(/\s+/g, " ").slice(0, 300);
+}
+
 // Kept byte-identical between requests so prompt caching works.
 const SYSTEM_PROMPT = `You are Atma, a warm and wise spiritual guide rooted in the Upanishads.
 People come to you with real-life questions: stress, work, relationships, grief, purpose, fear, discipline.
@@ -163,6 +170,7 @@ async function askGemini(question, history, note) {
   // Plan: main model -> backup (lighter) model -> main model again after a short pause.
   const attempts = [GEMINI_MODEL, "backup", GEMINI_MODEL];
   let lastErr;
+  const tried = [];
   for (let i = 0; i < attempts.length; i++) {
     const model = attempts[i] === "backup" ? await findBackupModel() : attempts[i];
     if (!model) continue;
@@ -173,12 +181,15 @@ async function askGemini(question, history, note) {
       return response.text || null; // empty when Gemini's safety filter blocks the reply
     } catch (err) {
       lastErr = err;
+      tried.push(`${model}: ${describeAiError(err)}`);
       console.warn(`Gemini ${model} failed: status=${err?.status} ${String(err?.message).slice(0, 300)}`);
-      if (!isBusy(err)) throw err;
+      if (!isBusy(err)) { err.detail = tried.join(" | "); throw err; }
       if (i === 1) await sleep(2500);
     }
   }
-  throw new GuideBusyError(String(lastErr?.message));
+  const busy = new GuideBusyError(String(lastErr?.message));
+  busy.detail = (tried.length ? tried : ["no backup model found"]).join(" | ");
+  throw busy;
 }
 
 function declined(lang) {

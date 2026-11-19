@@ -2,7 +2,7 @@ import express from "express";
 import { readFileSync } from "node:fs";
 import Stripe from "stripe";
 import * as store from "./store.js";
-import { askGuide, GuideBusyError, AI_PROVIDER } from "./guide.js";
+import { askGuide, GuideBusyError, AI_PROVIDER, describeAiError } from "./guide.js";
 import { verseOfTheDay } from "./verses.js";
 
 const PORT = Number(process.env.PORT || 3000);
@@ -101,11 +101,14 @@ app.post("/api/ask", requireUser, async (req, res) => {
     await store.recordQuestion(req.user.id);
     res.json({ ...result, me: await publicUser(req.user) });
   } catch (err) {
+    // "detail" shows the AI provider's reason (e.g. quota or model problems) so it can be fixed quickly.
+    const detail = err.detail ?? describeAiError(err);
     if (err instanceof GuideBusyError) {
-      return res.status(503).json({ error: "The guide is busy right now. Please try again in a minute.", code: "busy" });
+      console.warn("Guide busy:", detail);
+      return res.status(503).json({ error: "The guide is busy right now. Please try again in a minute.", code: "busy", detail });
     }
     console.error("askGuide failed:", err);
-    res.status(500).json({ error: "Something went wrong. Please try again.", code: "generic" });
+    res.status(500).json({ error: "Something went wrong. Please try again.", code: "generic", detail });
   }
 });
 

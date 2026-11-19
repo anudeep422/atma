@@ -186,7 +186,16 @@ $("ask").onsubmit = async (e) => {
     $("ask").classList.add("hidden");
     return;
   }
-  if (!ok) return addMessage("guide", errorText(data));
+  if (!ok) {
+    const el = addMessage("guide", errorText(data));
+    if (data.detail) {
+      const d = document.createElement("p");
+      d.className = "detail";
+      d.textContent = `Reason: ${data.detail}`;
+      el.appendChild(d);
+    }
+    return;
+  }
 
   addMessage("guide", data.answer, data.verses);
   history.push({ role: "user", content: question }, { role: "assistant", content: data.answer });
