@@ -32,7 +32,7 @@ export function describeAiError(err) {
 }
 
 // Kept byte-identical between requests so prompt caching works.
-const SYSTEM_PROMPT = `You are Atma, a warm and wise spiritual guide rooted in the Upanishads.
+const SYSTEM_PROMPT = `You are Atma, a warm and wise spiritual guide rooted in the Upanishads and the Bhagavad Gita.
 People come to you with real-life questions: stress, work, relationships, grief, purpose, fear, discipline.
 
 How to answer:
@@ -60,15 +60,9 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
-const GEMINI_SCHEMA = {
-  type: "object",
-  properties: OUTPUT_SCHEMA.properties,
-  required: OUTPUT_SCHEMA.required,
-};
-
 const LANGUAGE_NOTE = {
-  te: "Write the \"answer\" in simple, warm, natural Telugu (Telugu script), the way a respected elder would speak. Keep well-known Sanskrit terms (ఆత్మ, బ్రహ్మం, ధర్మం) as Telugu speakers normally use them.",
-  en: "Write the \"answer\" in English.",
+  te: "Write all text meant for the user in simple, warm, natural Telugu (Telugu script), the way a respected elder would speak. Keep well-known Sanskrit terms (ఆత్మ, బ్రహ్మం, ధర్మం) as Telugu speakers normally use them.",
+  en: "Write all text meant for the user in English.",
 };
 
 /**
@@ -78,39 +72,10 @@ const LANGUAGE_NOTE = {
  * @returns {Promise<{answer: string, verses: object[], demo?: boolean}>}
  */
 export async function askGuide(question, history = [], lang = "en") {
-  const note = `(App note: ${LANGUAGE_NOTE[lang] ?? LANGUAGE_NOTE.en})`;
-  let raw;
-  let provider;
-  if (claude) { raw = await askClaude(question, history, note); provider = "claude"; }
-  else if (gemini) {
-    try {
-      raw = await askGemini(question, history, note, lang);
-      provider = "gemini";
-    } catch (err) {
-      if (!groq) throw err;
-      console.warn("Gemini unavailable, using Groq backup");
-      try {
-        raw = await askGroq(question, history, note, lang);
-        provider = "groq";
-      } catch (groqErr) {
-        const both = groqErr instanceof GuideBusyError ? groqErr : err;
-        both.detail = `${err.detail ?? describeAiError(err)} || Groq: ${groqErr.detail ?? describeAiError(groqErr)}`;
-        throw both;
-      }
-    }
-  } else if (groq) { raw = await askGroq(question, history, note, lang); provider = "groq"; }
-  else return { ...demoAnswer(question, lang), provider: "demo" };
-
+  const { raw, provider } = await runAI({ system: SYSTEM_PROMPT, schema: OUTPUT_SCHEMA, question, history, lang });
+  if (provider === "demo") return { ...demoAnswer(question, lang), provider };
   if (raw === null) return { ...declined(lang), provider };
-
-  let parsed;
-  try {
-    const cleaned = raw.replace(/^```(?:json)?\s*|\s*```$/g, "");
-    const firstBrace = cleaned.indexOf("{"), lastBrace = cleaned.lastIndexOf("}");
-    parsed = JSON.parse(firstBrace >= 0 ? cleaned.slice(firstBrace, lastBrace + 1) : cleaned);
-  } catch {
-    throw new Error("Guide returned unparseable output");
-  }
+  const parsed = parseJson(raw);
   const verses = [...new Set(parsed.verse_ids ?? [])]
     .map((id) => VERSE_BY_ID[id])
     .filter(Boolean)
@@ -118,8 +83,60 @@ export async function askGuide(question, history = [], lang = "en") {
   return { answer: String(parsed.answer ?? ""), verses, provider };
 }
 
+/** Parses the model's JSON reply (tolerates ``` fences or text around it). */
+export function parseJson(raw) {
+  try {
+    const cleaned = raw.replace(/^```(?:json)?\s*|\s*```$/g, "");
+    const firstBrace = cleaned.indexOf("{"), lastBrace = cleaned.lastIndexOf("}");
+    return JSON.parse(firstBrace >= 0 ? cleaned.slice(firstBrace, lastBrace + 1) : cleaned);
+  } catch {
+    throw new Error("AI returned unparseable output");
+  }
+}
+
+export const LANGUAGE_NOTES = LANGUAGE_NOTE;
+
+/**
+ * Runs one AI request with any system prompt + JSON schema, using the configured providers:
+ * Claude if set; otherwise Gemini with Groq as backup. Returns { raw: JSON text | null (declined), provider }.
+ * provider "demo" means no AI key is configured.
+ */
+export async function runAI({ system, schema, question, history = [], lang = "en" }) {
+  const spec = { system, schema };
+  const note = `(App note: ${LANGUAGE_NOTE[lang] ?? LANGUAGE_NOTE.en})`;
+  if (claude) return { raw: await askClaude(spec, question, history, note), provider: "claude" };
+  if (gemini) {
+    try {
+      return { raw: await askGemini(spec, question, history, note, lang), provider: "gemini" };
+    } catch (err) {
+      if (!groq) throw err;
+      console.warn("Gemini unavailable, using Groq backup");
+      try {
+        return { raw: await askGroq(spec, question, history, note, lang), provider: "groq" };
+      } catch (groqErr) {
+        const both = groqErr instanceof GuideBusyError ? groqErr : err;
+        both.detail = `${err.detail ?? describeAiError(err)} || Groq: ${groqErr.detail ?? describeAiError(groqErr)}`;
+        throw both;
+      }
+    }
+  }
+  if (groq) return { raw: await askGroq(spec, question, history, note, lang), provider: "groq" };
+  return { raw: null, provider: "demo" };
+}
+
+// Gemini's schema support is stricter: drop "additionalProperties" everywhere.
+function geminiSchema(schema) {
+  if (Array.isArray(schema)) return schema.map(geminiSchema);
+  if (schema && typeof schema === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(schema)) if (k !== "additionalProperties") out[k] = geminiSchema(v);
+    return out;
+  }
+  return schema;
+}
+
 // Returns the JSON text, or null if the model declined.
-async function askClaude(question, history, note) {
+async function askClaude(spec, question, history, note) {
   const messages = [
     ...history.slice(-6),
     // Reply language goes in the turn (not the system prompt) so the cached system prompt stays identical.
@@ -132,8 +149,8 @@ async function askClaude(question, history, note) {
       // If a safety classifier declines, the API retries on a fallback model automatically.
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
-      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-      output_config: { effort: "medium", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
+      system: [{ type: "text", text: spec.system, cache_control: { type: "ephemeral" } }],
+      output_config: { effort: "medium", format: { type: "json_schema", schema: spec.schema } },
       messages,
     });
     if (response.stop_reason === "refusal") return null;
@@ -169,11 +186,11 @@ async function findBackupModel() {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const isBusy = (err) => err?.status === 429 || err?.status === 503 || err?.status === 500;
 
-async function geminiCall(model, contents) {
+async function geminiCall(model, contents, spec) {
   const config = {
-    systemInstruction: SYSTEM_PROMPT,
+    systemInstruction: spec.system,
     responseMimeType: "application/json",
-    responseJsonSchema: GEMINI_SCHEMA,
+    responseJsonSchema: geminiSchema(spec.schema),
   };
   if (geminiThinking !== "OFF") config.thinkingConfig = { thinkingLevel: geminiThinking };
   try {
@@ -183,13 +200,13 @@ async function geminiCall(model, contents) {
     if (err?.status === 400 && /think/i.test(String(err?.message)) && config.thinkingConfig) {
       console.warn(`Gemini: ${model} rejected thinkingLevel, continuing without it`);
       geminiThinking = "OFF";
-      return geminiCall(model, contents);
+      return geminiCall(model, contents, spec);
     }
     throw err;
   }
 }
 
-async function askGemini(question, history, note, lang) {
+async function askGemini(spec, question, history, note, lang) {
   const contents = [
     ...history.slice(-6).map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
     { role: "user", parts: [{ text: question }, { text: note }] },
@@ -205,7 +222,7 @@ async function askGemini(question, history, note, lang) {
     if (!model) continue;
     try {
       const started = Date.now();
-      const response = await geminiCall(model, contents);
+      const response = await geminiCall(model, contents, spec);
       console.log(`Gemini answered with ${model} in ${((Date.now() - started) / 1000).toFixed(1)}s`);
       return response.text || null; // empty when Gemini's safety filter blocks the reply
     } catch (err) {
@@ -222,24 +239,24 @@ async function askGemini(question, history, note, lang) {
 }
 
 // Groq (free tier, OpenAI-style API). Tries each model in GROQ_MODELS.
-const GROQ_JSON_RULES = `
+const groqJsonRules = (schema) => `
 
-OUTPUT FORMAT: reply with ONLY a JSON object, no other text:
-{"answer": "<your answer>", "verse_ids": ["<id from the VERSE LIBRARY>"]}`;
+OUTPUT FORMAT: reply with ONLY a JSON object (no other text) that matches this JSON schema:
+${JSON.stringify(geminiSchema(schema))}`;
 
 const GROQ_TELUGU_RULES = `
 
 TELUGU WRITING RULES (very important):
-- Write the "answer" in clear, natural, spoken Telugu, the way a kind elder speaks to family. Use Telugu script only.
+- Write all text fields in clear, natural, spoken Telugu, the way a kind elder speaks to family. Use Telugu script only.
 - Use SHORT, simple sentences (8–15 words each). Correct Telugu grammar matters more than length; 100–150 words is enough.
 - Do not mix in English words. Do not translate English idioms word for word.
 - Use common words that every Telugu reader knows: మనసు, ప్రశాంతత, ధైర్యం, ఆత్మ, సాధన, శ్వాస, ప్రేమ.
 - Address the reader respectfully with "మీరు".
 - Example of the right tone: "మీ మనసులోని బాధను నేను అర్థం చేసుకోగలను. ఈ రోజు ఐదు నిమిషాలు ప్రశాంతంగా కూర్చోండి. నెమ్మదిగా శ్వాస తీసుకోండి."`;
 
-async function askGroq(question, history, note, lang) {
+async function askGroq(spec, question, history, note, lang) {
   const messages = [
-    { role: "system", content: SYSTEM_PROMPT + (lang === "te" ? GROQ_TELUGU_RULES : "") + GROQ_JSON_RULES },
+    { role: "system", content: spec.system + (lang === "te" ? GROQ_TELUGU_RULES : "") + groqJsonRules(spec.schema) },
     ...history.slice(-6),
     { role: "user", content: `${question}\n\n${note}` },
   ];

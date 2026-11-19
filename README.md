@@ -5,6 +5,8 @@ real Upanishad verses, plus one small daily practice.
 
 - **Free:** verse of the day + 3 questions/day (set `FREE_QUESTIONS_PER_DAY=3`; leave it unset for unlimited questions while testing)
 - **Seeker ($4.99/month):** unlimited questions (Stripe subscription)
+- **🎯 Coach:** pick an area (relationships, emotions, discipline, career, wealth) and a goal → a 7-day plan with a verse,
+  a daily sankalpa, practices and one small action per day; one check-in per day with a reply from the coach.
 - **English + Telugu:** switch at the top of every page; Sanskrit verses shown in Telugu script, Telugu meanings, AI answers in Telugu.
 - **Accuracy:** the AI only *chooses* verses from a curated library (`verses.js`);
   the app displays the verse text itself, so scripture is never invented.
@@ -85,7 +87,7 @@ FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:808
 |---|---|
 | `server.js` | Web server: daily limit, Stripe checkout & webhook |
 | `guide.js` | The AI guide (Gemini + Groq free / Claude paid) and its instructions |
-| `verses.js` | The curated Upanishad verse library: add more verses here |
+| `verses.js` | The curated verse library (Upanishads + Bhagavad Gita, 59 verses): add more verses here |
 | `store.js` | Firebase: checks sign-ins, stores users and usage in Firestore |
 | `client/firebase-auth.js` | Browser sign-in code (Google, email, password reset); built into `public/` on `npm install` |
 | `firebase-config.json` | Your Firebase project's public web settings |
@@ -93,6 +95,8 @@ FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:808
 | `public/privacy.html`, `public/about.html` | Privacy and About pages (text lives in `public/i18n.js`; set `CONTACT_EMAIL` for the contact link) |
 | `public/stats.html` | Private stats (users, questions, 👍/👎 per AI, shares). Set `ADMIN_EMAILS` to your email to open it |
 | `public/manifest.webmanifest`, `public/sw.js`, `public/pwa.js` | Lets people install Atma on their phone's home screen |
+| `coach.js` | The Coach: plan + check-in prompts (uses `verses.js` and `practices.js`) |
+| `practices.js` | Practices library (traditional + "inspired by" Neville Goddard, Osho, Gurdjieff, J. Krishnamurti, José Silva), English + Telugu. Review before launch |
 | `translit.js` | Converts Sanskrit (Roman letters) to Telugu script |
 | `public/i18n.js` | All English/Telugu website text: edit wording here |
 | `public/` | Landing page and app UI |

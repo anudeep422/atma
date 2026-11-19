@@ -29,7 +29,8 @@ function tokenize(text) {
 }
 
 export function iastToTelugu(iast) {
-  const tokens = tokenize(iast.normalize("NFC").toLowerCase());
+  // Compound words: IAST shows "karma-phala", Telugu script writes them joined (కర్మఫల).
+  const tokens = tokenize(iast.normalize("NFC").toLowerCase().replace(/-/g, ""));
   let out = "";
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];

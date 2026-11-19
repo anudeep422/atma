@@ -55,8 +55,7 @@ function showAuth() {
   $("auth").classList.remove("hidden");
   $("main").classList.add("hidden");
   $("logout").classList.add("hidden");
-  $("journal-btn").classList.add("hidden");
-  $("journal").classList.add("hidden");
+  ["tabs", "coach", "journal"].forEach((id) => $(id).classList.add("hidden"));
   renderAuthText();
 }
 
@@ -143,7 +142,8 @@ function showMain(user) {
   $("auth").classList.add("hidden");
   $("main").classList.remove("hidden");
   $("logout").classList.remove("hidden");
-  $("journal-btn").classList.remove("hidden");
+  $("tabs").classList.remove("hidden");
+  showTab(currentTab);
   $("stats-link").classList.toggle("hidden", !user.admin);
   renderPlan();
   renderNotice();
@@ -300,13 +300,170 @@ async function openJournal() {
   }
 }
 
-function closeJournal() {
-  $("journal").classList.add("hidden");
-  $("main").classList.remove("hidden");
+// ---------- tabs ----------
+let currentTab = "main";
+function showTab(name) {
+  currentTab = name;
+  for (const id of ["main", "coach", "journal"]) $(id).classList.toggle("hidden", id !== name);
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  if (name === "journal") openJournal();
+  if (name === "coach") loadCoach();
+}
+document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
+
+// ---------- coach ----------
+let coachState = null;
+let chosenArea = null;
+
+function practiceEl(p) {
+  const te = LANG === "te";
+  const box = document.createElement("div");
+  box.className = "practice";
+  const head = document.createElement("div");
+  head.className = "practice-head";
+  head.textContent = `🧘 ${te ? p.name_te : p.name} · ${p.minutes} ${t("min")}`;
+  const src = document.createElement("div");
+  src.className = "practice-src";
+  src.textContent = te ? p.source_te : p.source;
+  const steps = document.createElement("p");
+  steps.textContent = te ? p.steps_te : p.steps;
+  box.append(head, src, steps);
+  return box;
 }
 
-$("journal-btn").onclick = openJournal;
-$("journal-back").onclick = closeJournal;
+async function loadCoach() {
+  $("coach-loading").classList.remove("hidden");
+  $("coach-start").classList.add("hidden");
+  $("coach-plan").classList.add("hidden");
+  const { ok, data } = await api("/api/coach");
+  $("coach-loading").classList.add("hidden");
+  if (!ok) return;
+  coachState = data;
+  renderCoach();
+}
+
+function renderCoach() {
+  const st = coachState;
+  if (!st?.program) {
+    $("coach-start").classList.remove("hidden");
+    $("coach-plan").classList.add("hidden");
+    return;
+  }
+  const pg = st.program;
+  $("coach-start").classList.add("hidden");
+  $("coach-plan").classList.remove("hidden");
+  $("plan-title").textContent = pg.title;
+  $("plan-day").textContent = st.completed ? t("completed") : t("day_of", { n: st.day, m: pg.days.length });
+  $("plan-sankalpa").textContent = pg.sankalpa;
+  $("plan-why").textContent = pg.why;
+
+  // Progress dots: ✓ done, · not done, ○ upcoming
+  const dots = $("plan-dots");
+  dots.innerHTML = "";
+  pg.days.forEach((_, i) => {
+    const c = pg.checkins[i];
+    const d = document.createElement("span");
+    d.className = "dot " + (c ? (c.done ? "done" : "missed") : i + 1 === st.day && !st.completed ? "today" : "");
+    d.textContent = c ? (c.done ? "✓" : "–") : i + 1;
+    dots.appendChild(d);
+  });
+
+  const vbox = $("plan-verses");
+  vbox.innerHTML = "";
+  pg.verses.forEach((v) => vbox.appendChild(verseEl(v)));
+
+  // Today's action (or the last day's, once complete)
+  const idx = Math.min(st.day, pg.days.length) - 1;
+  const today = pg.days[idx];
+  $("today-box").classList.toggle("hidden", st.completed);
+  $("today-label").textContent = t("today_action", { n: st.day });
+  $("today-action").textContent = today.action;
+  const tp = $("today-practice");
+  tp.innerHTML = "";
+  const practice = today.practice ?? pg.practices[idx % Math.max(pg.practices.length, 1)];
+  if (practice) tp.appendChild(practiceEl(practice));
+  $("checkin-box").classList.toggle("hidden", st.checkedInToday);
+  $("checkin-wait").classList.toggle("hidden", !st.checkedInToday);
+
+  // Latest coach reply
+  const last = pg.checkins.at(-1);
+  const reply = $("coach-reply");
+  reply.classList.toggle("hidden", !last);
+  if (last) {
+    reply.innerHTML = "";
+    const label = document.createElement("div");
+    label.className = "lbl";
+    label.textContent = t("coach_says");
+    const p = document.createElement("p");
+    p.textContent = last.reply;
+    reply.append(label, p);
+  }
+  $("plan-complete").classList.toggle("hidden", !st.completed);
+
+  const hist = $("plan-history");
+  hist.innerHTML = "";
+  pg.checkins.forEach((c) => {
+    const item = document.createElement("div");
+    item.className = "hist-item";
+    const h = document.createElement("b");
+    h.textContent = `${t("day")} ${c.day}: ${c.done ? "✅" : "–"} ${c.note ? "· " + c.note : ""}`;
+    const p = document.createElement("p");
+    p.textContent = c.reply;
+    item.append(h, p);
+    hist.appendChild(item);
+  });
+  if (!pg.checkins.length) hist.textContent = t("no_checkins");
+}
+
+document.querySelectorAll("#area-chips button").forEach((b) => {
+  b.onclick = () => {
+    chosenArea = b.dataset.area;
+    document.querySelectorAll("#area-chips button").forEach((x) => x.classList.toggle("chosen", x === b));
+    $("wealth-note").classList.toggle("hidden", chosenArea !== "wealth");
+  };
+});
+
+$("coach-form").onsubmit = async (e) => {
+  e.preventDefault();
+  $("coach-error").textContent = "";
+  if (!chosenArea) { $("coach-error").textContent = t("err_coach_need_area"); return; }
+  const btn = $("coach-create");
+  btn.disabled = true;
+  btn.textContent = t("creating_plan");
+  const { ok, data } = await api("/api/coach/start", { area: chosenArea, goal: $("coach-goal").value, lang: LANG });
+  btn.disabled = false;
+  btn.textContent = t("create_plan");
+  if (!ok) { $("coach-error").textContent = errorText(data); return; }
+  $("coach-goal").value = "";
+  coachState = data;
+  renderCoach();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+async function checkin(done) {
+  $("checkin-error").textContent = "";
+  ["checkin-done", "checkin-skip"].forEach((id) => ($(id).disabled = true));
+  $("checkin-wait").classList.add("hidden");
+  const { ok, data } = await api("/api/coach/checkin", { done, note: $("checkin-note").value, lang: LANG });
+  ["checkin-done", "checkin-skip"].forEach((id) => ($(id).disabled = false));
+  if (!ok) { $("checkin-error").textContent = errorText(data); return; }
+  $("checkin-note").value = "";
+  coachState = data;
+  renderCoach();
+  $("coach-reply").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+$("checkin-done").onclick = () => checkin(true);
+$("checkin-skip").onclick = () => checkin(false);
+
+async function stopPlan() {
+  await api("/api/coach/stop", {});
+  coachState = { program: null };
+  renderCoach();
+}
+$("coach-stop").onclick = () => { if (confirm(t("confirm_end_plan"))) stopPlan(); };
+$("coach-new").onclick = stopPlan;
+
+onLangChange.push(() => { if (currentTab === "coach" && coachState) renderCoach(); });
 
 // ---------- start ----------
 AtmaAuth.init(onSignInChange);

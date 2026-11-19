@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import * as store from "./store.js";
 import { askGuide, GuideBusyError, AI_PROVIDER, describeAiError } from "./guide.js";
 import { verseOfTheDay, VERSE_BY_ID } from "./verses.js";
+import * as coach from "./coach.js";
 
 const PORT = Number(process.env.PORT || 3000);
 const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
@@ -129,6 +130,78 @@ app.get("/api/journal", requireUser, async (req, res) => {
 app.delete("/api/journal/:id", requireUser, async (req, res) => {
   await store.deleteEntry(req.user.id, String(req.params.id));
   res.json({ ok: true });
+});
+
+// ---- Coach ----
+// One check-in per calendar day (UTC). Set COACH_ONE_PER_DAY=false to allow more (useful for testing).
+const ONE_CHECKIN_PER_DAY = process.env.COACH_ONE_PER_DAY !== "false";
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
+function coachView(program) {
+  if (!program) return { program: null };
+  const n = program.checkins?.length ?? 0;
+  const checkedInToday = ONE_CHECKIN_PER_DAY && program.checkins?.at(-1)?.date === todayStr();
+  return {
+    program: coach.hydrate(program),
+    day: Math.min(n + 1, coach.PLAN_DAYS),
+    completed: program.status === "completed",
+    checkedInToday,
+  };
+}
+
+function aiError(res, err, lang) {
+  const detail = err.detail ?? describeAiError(err);
+  if (err instanceof GuideBusyError) {
+    console.warn("Coach busy:", detail);
+    return res.status(503).json({ error: "The guide is busy right now. Please try again in a minute.", code: "busy", detail });
+  }
+  if (err.declined) return res.status(400).json({ error: "The coach can't help with that goal. Please try wording it differently.", code: "generic" });
+  console.error("coach failed:", err);
+  res.status(500).json({ error: "Something went wrong. Please try again.", code: "generic", detail });
+}
+
+app.get("/api/coach", requireUser, async (req, res) => res.json(coachView(await store.getCoach(req.user.id))));
+
+app.post("/api/coach/start", requireUser, async (req, res) => {
+  const area = coach.AREAS.includes(req.body.area) ? req.body.area : null;
+  const goal = String(req.body.goal || "").trim().slice(0, 500);
+  const lang = req.body.lang === "te" ? "te" : "en";
+  if (!area || goal.length < 3) return res.status(400).json({ error: "Please choose an area and describe your goal.", code: "coach_need_goal" });
+  try {
+    const plan = await coach.createPlan({ area, goal, lang });
+    const existing = await store.getCoach(req.user.id);
+    if (existing) await store.endCoach(req.user.id); // starting a new goal archives the old one
+    await store.startCoach(req.user.id, { area, goal, lang, ...plan });
+    store.bumpStats({ coach_started: 1, [`coach_${area}`]: 1 }).catch(() => {});
+    res.json(coachView(await store.getCoach(req.user.id)));
+  } catch (err) {
+    aiError(res, err, lang);
+  }
+});
+
+app.post("/api/coach/checkin", requireUser, async (req, res) => {
+  const program = await store.getCoach(req.user.id);
+  if (!program) return res.status(404).json({ error: "No active plan." });
+  const view = coachView(program);
+  if (view.completed) return res.status(400).json({ error: "This plan is complete." });
+  if (view.checkedInToday) return res.status(400).json({ error: "You've already checked in today.", code: "coach_tomorrow" });
+  const lang = req.body.lang === "te" ? "te" : "en";
+  const done = Boolean(req.body.done);
+  const note = String(req.body.note || "").trim().slice(0, 1000);
+  try {
+    const { message, provider } = await coach.coachReply({ program, day: view.day, done, note, lang });
+    const completed = view.day >= coach.PLAN_DAYS;
+    await store.addCheckin(req.user.id, { day: view.day, done, note, reply: message, provider, date: todayStr() }, completed);
+    store.bumpStats({ coach_checkins: 1, ...(completed ? { coach_completed: 1 } : {}) }).catch(() => {});
+    res.json(coachView(await store.getCoach(req.user.id)));
+  } catch (err) {
+    aiError(res, err, lang);
+  }
+});
+
+app.post("/api/coach/stop", requireUser, async (req, res) => {
+  await store.endCoach(req.user.id);
+  res.json({ program: null });
 });
 
 // 👍 / 👎 on an answer

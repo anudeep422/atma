@@ -44,6 +44,7 @@
         ["Total users", data.totalUsers], ["Active users", data.activeUsers], ["Returning users", data.returningUsers],
         ["Questions", sum("questions")], ["👍 / 👎", `${sum("up")} / ${sum("down")}`],
         ["Shares", sum("shares")], ["Listens", sum("listens")], ["Installs", sum("installs")],
+        ["Coach plans", sum("coach_started")], ["Coach check-ins", sum("coach_checkins")], ["Plans completed", sum("coach_completed")],
       ];
       el("cards").innerHTML = cards.map(([l, v]) => `<div class="card"><div class="num">${v}</div><div class="lbl">${l}</div></div>`).join("");
       const cols = [
@@ -53,6 +54,7 @@
         ["👍 Gemini", (d) => n(d.up_gemini)], ["👎 Gemini", (d) => n(d.down_gemini)],
         ["👍 Groq", (d) => n(d.up_groq)], ["👎 Groq", (d) => n(d.down_groq)],
         ["Shares", (d) => n(d.shares)], ["Listens", (d) => n(d.listens)], ["Installs", (d) => n(d.installs)],
+        ["Coach plans", (d) => n(d.coach_started)], ["Check-ins", (d) => n(d.coach_checkins)], ["Completed", (d) => n(d.coach_completed)],
       ];
       const t = el("table");
       t.innerHTML = `<tr>${cols.map(([h]) => `<th>${h}</th>`).join("")}</tr>` +

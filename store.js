@@ -141,3 +141,32 @@ export async function getStats(days = 14) {
     days: list,
   };
 }
+
+// ---- Coach: one active 7-day plan per user (users/{uid}/coach/current) ----
+const coachDoc = (uid) => users.doc(uid).collection("coach").doc("current");
+
+export async function getCoach(uid) {
+  const snap = await coachDoc(uid).get();
+  if (!snap.exists) return null;
+  const c = snap.data();
+  return { ...c, startedAt: c.startedAt?.toDate?.().toISOString() ?? null };
+}
+
+export function startCoach(uid, program) {
+  return coachDoc(uid).set({ ...program, checkins: [], status: "active", startedAt: FieldValue.serverTimestamp() });
+}
+
+export function addCheckin(uid, checkin, completed) {
+  return coachDoc(uid).update({
+    checkins: FieldValue.arrayUnion(checkin),
+    ...(completed ? { status: "completed" } : {}),
+  });
+}
+
+/** Moves the current plan into history (users/{uid}/coachHistory) and clears it. */
+export async function endCoach(uid) {
+  const snap = await coachDoc(uid).get();
+  if (!snap.exists) return;
+  await users.doc(uid).collection("coachHistory").add({ ...snap.data(), endedAt: FieldValue.serverTimestamp() });
+  await coachDoc(uid).delete();
+}
