@@ -5,6 +5,7 @@ real Upanishad verses, plus one small daily practice.
 
 - **Free:** verse of the day + 3 questions/day
 - **Seeker ($4.99/month):** unlimited questions (Stripe subscription)
+- **English + Telugu:** switch at the top of every page; Sanskrit verses shown in Telugu script, Telugu meanings, AI answers in Telugu.
 - **Accuracy:** the AI only *chooses* verses from a curated library (`verses.js`);
   the app displays the verse text itself, so scripture is never invented.
 
@@ -65,9 +66,11 @@ Locally you can leave these empty: the app uses a file called `atma.db`.
 | `guide.js` | The AI guide (Claude) and its instructions |
 | `verses.js` | The curated Upanishad verse library: add more verses here |
 | `db.js` | Database (users, sessions, usage): local file or Turso |
+| `translit.js` | Converts Sanskrit (Roman letters) to Telugu script |
+| `public/i18n.js` | All English/Telugu website text: edit wording here |
 | `public/` | Landing page and app UI |
 
 ## Before launching publicly
-- Have someone knowledgeable review the verse references and translations in `verses.js`.
+- Have someone knowledgeable review the verse references and English/Telugu meanings in `verses.js`.
 - Add a privacy policy and terms page (Stripe requires them).
 - Consider rate limiting on login (e.g. `express-rate-limit`).

@@ -34,17 +34,30 @@ const OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
+const LANGUAGE_NOTE = {
+  te: "Write the \"answer\" in simple, warm, natural Telugu (Telugu script), the way a respected elder would speak. Keep well-known Sanskrit terms (ఆత్మ, బ్రహ్మం, ధర్మం) as Telugu speakers normally use them.",
+  en: "Write the \"answer\" in English.",
+};
+
 /**
  * @param {string} question
  * @param {{role: "user"|"assistant", content: string}[]} history recent turns (plain text)
+ * @param {"en"|"te"} lang language of the answer
  * @returns {Promise<{answer: string, verses: object[], demo?: boolean}>}
  */
-export async function askGuide(question, history = []) {
-  if (!client) return demoAnswer(question);
+export async function askGuide(question, history = [], lang = "en") {
+  if (!client) return demoAnswer(question, lang);
 
   const messages = [
     ...history.slice(-6),
-    { role: "user", content: question },
+    {
+      role: "user",
+      content: [
+        { type: "text", text: question },
+        // Reply language goes in the turn (not the system prompt) so the cached system prompt stays identical.
+        { type: "text", text: `(App note: ${LANGUAGE_NOTE[lang] ?? LANGUAGE_NOTE.en})` },
+      ],
+    },
   ];
 
   const response = await client.beta.messages.create({
@@ -63,7 +76,9 @@ export async function askGuide(question, history = []) {
 
   if (response.stop_reason === "refusal") {
     return {
-      answer: "I'm not able to help with that question. If you are going through something difficult, please consider reaching out to someone you trust or a local helpline. You're welcome to ask me about anything on your heart.",
+      answer: lang === "te"
+        ? "ఈ ప్రశ్నకు నేను సహాయం చేయలేను. మీరు కష్టకాలంలో ఉంటే, దయచేసి మీరు నమ్మే వ్యక్తిని లేదా స్థానిక హెల్ప్‌లైన్‌ను (Tele-MANAS 14416) సంప్రదించండి. మీ మనసులో ఉన్న మరే విషయమైనా నన్ను అడగవచ్చు."
+        : "I'm not able to help with that question. If you are going through something difficult, please consider reaching out to someone you trust or a local helpline. You're welcome to ask me about anything on your heart.",
       verses: [VERSE_BY_ID["shvetashvatara-6.11"]],
     };
   }
@@ -84,11 +99,21 @@ export async function askGuide(question, history = []) {
 }
 
 // Used when ANTHROPIC_API_KEY is not set, so the app can be tried end-to-end for free.
-function demoAnswer(question) {
+function demoAnswer(question, lang) {
   const q = question.toLowerCase();
   const pick = VERSES.find((v) =>
     v.theme.split(/[ ,]+/).some((word) => word.length > 3 && q.includes(word.replace(/s$/, ""))),
   ) ?? VERSE_BY_ID["katha-1.3.3"];
+  if (lang === "te") {
+    return {
+      demo: true,
+      answer:
+        "(డెమో మోడ్: నిజమైన, వ్యక్తిగత మార్గదర్శనం కోసం ANTHROPIC_API_KEY జోడించండి.)\n\n" +
+        "మీ మనసులోని మాట పంచుకున్నందుకు ధన్యవాదాలు. పైన ఉన్న శ్లోకాన్ని నెమ్మదిగా ఒకసారి చదవండి. " +
+        "మిమ్మల్ని మీరు అడగండి: నా పరిస్థితిలో నేను దేనిని వదిలేయగలను, ఈ రోజు నేను ఏ పని చేయాలి?",
+      verses: [pick],
+    };
+  }
   return {
     demo: true,
     answer:

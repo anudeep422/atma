@@ -4,63 +4,61 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Atma: Wisdom of the Upanishads</title>
-  <meta name="description" content="Ask life's questions and receive guidance from the Upanishads: a daily verse, personal answers and simple practices.">
+  <meta name="description" content="Ask life's questions and receive guidance from the Upanishads, in English and Telugu: a daily verse, personal answers and simple practices.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=Noto+Sans+Telugu:wght@400;500;600&family=Noto+Serif+Telugu:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
+  <script src="/i18n.js"></script>
 </head>
 <body>
   <div class="wrap">
     <nav>
       <a class="logo" href="/">Atma<span>.</span></a>
-      <a class="btn ghost" href="/app.html">Log in</a>
+      <div class="nav-right">
+        <button id="lang-toggle" class="lang" data-i18n="switch_to">తెలుగు</button>
+        <a class="btn ghost" href="/app.html" data-i18n="login">Log in</a>
+      </div>
     </nav>
 
     <section class="hero">
-      <h1>Ancient wisdom for<br>the questions you carry today</h1>
-      <p>Ask about stress, purpose, relationships or loss, and receive gentle guidance drawn from the Upanishads, with a simple practice for your day.</p>
-      <a class="btn" href="/app.html?signup=1">Start free</a>
+      <h1 data-i18n-html="hero_title">Ancient wisdom for<br>the questions you carry today</h1>
+      <p data-i18n="hero_sub"></p>
+      <a class="btn" href="/app.html?signup=1" data-i18n="start_free">Start free</a>
     </section>
 
-    <h2>Today's verse</h2>
-    <div id="votd" class="verse"><p class="en">Loading…</p></div>
+    <h2 data-i18n="todays_verse">Today's verse</h2>
+    <div id="votd" class="verse"><p class="en" data-i18n="loading">Loading…</p></div>
 
-    <h2>How it works</h2>
+    <h2 data-i18n="how">How it works</h2>
     <div class="grid">
-      <div class="card"><h3>1. Ask</h3><p>Share what's on your mind, in your own words.</p></div>
-      <div class="card"><h3>2. Receive</h3><p>Get guidance rooted in authentic Upanishad verses, explained simply.</p></div>
-      <div class="card"><h3>3. Practice</h3><p>Leave with one small practice to bring the teaching into your day.</p></div>
+      <div class="card"><h3 data-i18n="step1_t"></h3><p data-i18n="step1_d"></p></div>
+      <div class="card"><h3 data-i18n="step2_t"></h3><p data-i18n="step2_d"></p></div>
+      <div class="card"><h3 data-i18n="step3_t"></h3><p data-i18n="step3_d"></p></div>
     </div>
 
-    <h2>Pricing</h2>
+    <h2 data-i18n="pricing">Pricing</h2>
     <div class="grid">
       <div class="card">
-        <h3>Free</h3>
+        <h3 data-i18n="free">Free</h3>
         <div class="price">$0</div>
-        <ul><li>Verse of the day</li><li>3 questions per day</li></ul>
-        <a class="btn ghost" href="/app.html?signup=1">Start free</a>
+        <ul><li data-i18n="f1"></li><li data-i18n="f2"></li></ul>
+        <a class="btn ghost" href="/app.html?signup=1" data-i18n="start_free">Start free</a>
       </div>
       <div class="card featured">
-        <h3>Seeker</h3>
-        <div class="price">$4.99<small style="font-size:16px">/month</small></div>
-        <ul><li>Unlimited questions</li><li>Deeper, continuing conversations</li><li>Cancel anytime</li></ul>
-        <a class="btn" href="/app.html?signup=1">Get started</a>
+        <h3 data-i18n="seeker">Seeker</h3>
+        <div class="price">$4.99<small style="font-size:16px" data-i18n="per_month">/month</small></div>
+        <ul><li data-i18n="s1"></li><li data-i18n="s2"></li><li data-i18n="s3"></li></ul>
+        <a class="btn" href="/app.html?signup=1" data-i18n="get_started">Get started</a>
       </div>
     </div>
 
-    <footer>
-      Atma offers spiritual reflection, not medical, legal or financial advice.<br>
-      If you are in crisis, please contact a local helpline or emergency services.
-    </footer>
+    <footer data-i18n-html="footer"></footer>
   </div>
   <script>
     fetch("/api/verse-of-the-day").then(r => r.json()).then(v => {
-      const el = document.getElementById("votd");
-      el.innerHTML = "";
-      for (const [cls, text] of [["ref", v.ref], ["sa", v.sanskrit], ["en", v.english]]) {
-        const p = document.createElement(cls === "ref" ? "div" : "p");
-        p.className = cls; p.textContent = text; el.appendChild(p);
-      }
+      const box = document.getElementById("votd");
+      box.dataset.verse = JSON.stringify(v);
+      fillVerse(box);
     });
   </script>
 </body>

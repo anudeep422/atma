@@ -1,7 +1,9 @@
+// Uses t(), LANG, verseEl() and onLangChange from i18n.js.
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 let signupMode = params.has("signup");
 let history = []; // recent turns sent to the guide for context
+let me = null;
 
 async function api(path, body) {
   const res = await fetch(path, {
@@ -13,16 +15,23 @@ async function api(path, body) {
   return { ok: res.ok, status: res.status, data };
 }
 
+const errorText = (data) => (data.code ? t("err_" + data.code) : data.error) || t("err_generic");
+
 // ---------- auth ----------
+function renderAuthText() {
+  $("auth-title").textContent = t(signupMode ? "create_account" : "welcome_back");
+  $("auth-toggle").textContent = t(signupMode ? "have_account" : "new_here");
+}
+
 function showAuth() {
+  me = null;
   $("auth").classList.remove("hidden");
   $("main").classList.add("hidden");
   $("logout").classList.add("hidden");
-  $("auth-title").textContent = signupMode ? "Create your account" : "Welcome back";
-  $("auth-toggle").textContent = signupMode ? "I already have an account" : "New here? Create an account";
+  renderAuthText();
 }
 
-$("auth-toggle").onclick = () => { signupMode = !signupMode; showAuth(); };
+$("auth-toggle").onclick = () => { signupMode = !signupMode; renderAuthText(); };
 
 $("auth-form").onsubmit = async (e) => {
   e.preventDefault();
@@ -30,21 +39,22 @@ $("auth-form").onsubmit = async (e) => {
   const { ok, data } = await api(signupMode ? "/api/signup" : "/api/login", {
     email: $("email").value, password: $("password").value,
   });
-  if (!ok) return ($("auth-error").textContent = data.error || "Something went wrong.");
+  if (!ok) return ($("auth-error").textContent = errorText(data));
   showMain(data);
 };
 
 $("logout").onclick = async () => { await api("/api/logout", {}); signupMode = false; showAuth(); };
 
 // ---------- main ----------
-function renderPlan(me) {
+function renderPlan() {
+  if (!me) return;
   $("plan").innerHTML = "";
   if (me.premium) {
     const b = document.createElement("span");
-    b.className = "badge"; b.textContent = "Seeker";
-    $("plan").append(b, " Unlimited questions");
+    b.className = "badge"; b.textContent = t("seeker");
+    $("plan").append(b, " " + t("unlimited"));
   } else {
-    $("plan").textContent = `${me.remainingToday} of ${me.freePerDay} free questions left today`;
+    $("plan").textContent = t("left", { n: me.remainingToday, m: me.freePerDay });
   }
   $("upgrade").classList.toggle("hidden", me.premium);
   $("manage").classList.toggle("hidden", !me.premium);
@@ -53,29 +63,25 @@ function renderPlan(me) {
   $("ask").classList.toggle("hidden", outOfQuestions);
 }
 
-function showMain(me) {
+function renderNotice() {
+  const upgraded = params.get("upgraded");
+  if (!upgraded) return;
+  $("notice").classList.remove("hidden");
+  $("notice").textContent = t(upgraded === "demo" ? "upgraded_demo" : "upgraded");
+}
+
+function showMain(user) {
+  me = user;
   $("auth").classList.add("hidden");
   $("main").classList.remove("hidden");
   $("logout").classList.remove("hidden");
-  renderPlan(me);
-  const upgraded = params.get("upgraded");
-  if (upgraded) {
-    $("notice").classList.remove("hidden");
-    $("notice").textContent = upgraded === "demo"
-      ? "Demo mode: you were upgraded without payment. Add Stripe keys to take real payments."
-      : "Thank you for becoming a Seeker. Unlimited guidance is now yours. 🙏";
-  }
+  renderPlan();
+  renderNotice();
 }
 
-function verseEl(v) {
-  const box = document.createElement("div");
-  box.className = "verse";
-  for (const [cls, text] of [["ref", v.ref], ["sa", v.sanskrit], ["en", v.english]]) {
-    const el = document.createElement(cls === "ref" ? "div" : "p");
-    el.className = cls; el.textContent = text; box.appendChild(el);
-  }
-  return box;
-}
+onLangChange.push(() => {
+  if (me) { renderPlan(); renderNotice(); } else renderAuthText();
+});
 
 function addMessage(role, text, verses = []) {
   const el = document.createElement("div");
@@ -102,9 +108,9 @@ $("ask").onsubmit = async (e) => {
   $("question").value = "";
   $("send").disabled = true;
   addMessage("user", question);
-  const waiting = addMessage("thinking", "Reflecting on the Upanishads…");
+  const waiting = addMessage("thinking", t("thinking"));
 
-  const { ok, status, data } = await api("/api/ask", { question, history });
+  const { ok, status, data } = await api("/api/ask", { question, history, lang: LANG });
   waiting.remove();
   $("send").disabled = false;
 
@@ -114,12 +120,13 @@ $("ask").onsubmit = async (e) => {
     $("ask").classList.add("hidden");
     return;
   }
-  if (!ok) return addMessage("guide", data.error || "Something went wrong. Please try again.");
+  if (!ok) return addMessage("guide", errorText(data));
 
   addMessage("guide", data.answer, data.verses);
   history.push({ role: "user", content: question }, { role: "assistant", content: data.answer });
   history = history.slice(-6);
-  renderPlan(data.me);
+  me = data.me;
+  renderPlan();
 };
 
 document.querySelectorAll("#suggestions button").forEach((b) => {
@@ -129,14 +136,14 @@ document.querySelectorAll("#suggestions button").forEach((b) => {
 async function goToCheckout() {
   const { ok, data } = await api("/api/checkout", {});
   if (ok && data.url) location.href = data.url;
-  else alert(data.error || "Could not start checkout.");
+  else alert(errorText(data));
 }
 $("upgrade").onclick = goToCheckout;
 document.querySelector("[data-upgrade]").onclick = goToCheckout;
 $("manage").onclick = async () => {
   const { ok, data } = await api("/api/billing-portal", {});
   if (ok && data.url) location.href = data.url;
-  else alert(data.error || "Could not open billing.");
+  else alert(errorText(data));
 };
 
 // ---------- start ----------

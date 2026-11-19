@@ -77,9 +77,9 @@ app.get("/api/verse-of-the-day", (_req, res) => res.json(verseOfTheDay()));
 app.post("/api/signup", async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const password = String(req.body.password || "");
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: "Please enter a valid email." });
-  if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters." });
-  if (await store.findUserByEmail(email)) return res.status(409).json({ error: "An account with this email already exists." });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: "Please enter a valid email.", code: "invalid_email" });
+  if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters.", code: "short_password" });
+  if (await store.findUserByEmail(email)) return res.status(409).json({ error: "An account with this email already exists.", code: "email_exists" });
   const id = await store.createUser(email, password);
   await startSession(res, id);
   res.json(await publicUser(await store.findUserById(id)));
@@ -88,7 +88,7 @@ app.post("/api/signup", async (req, res) => {
 app.post("/api/login", async (req, res) => {
   const user = await store.findUserByEmail(String(req.body.email || "").trim().toLowerCase());
   if (!user || !store.checkPassword(String(req.body.password || ""), user.pass_hash)) {
-    return res.status(401).json({ error: "Wrong email or password." });
+    return res.status(401).json({ error: "Wrong email or password.", code: "wrong_login" });
   }
   await startSession(res, user.id);
   res.json(await publicUser(user));
@@ -117,15 +117,16 @@ app.post("/api/ask", requireUser, async (req, res) => {
     : [];
 
   try {
-    const result = await askGuide(question, history);
+    const lang = req.body.lang === "te" ? "te" : "en";
+    const result = await askGuide(question, history, lang);
     await store.recordQuestion(req.user.id);
     res.json({ ...result, me: await publicUser(req.user) });
   } catch (err) {
     if (err instanceof Anthropic.RateLimitError) {
-      return res.status(503).json({ error: "The guide is busy right now. Please try again in a minute." });
+      return res.status(503).json({ error: "The guide is busy right now. Please try again in a minute.", code: "busy" });
     }
     console.error("askGuide failed:", err);
-    res.status(500).json({ error: "Something went wrong. Please try again." });
+    res.status(500).json({ error: "Something went wrong. Please try again.", code: "generic" });
   }
 });
 

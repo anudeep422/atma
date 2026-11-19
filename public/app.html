@@ -5,55 +5,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Atma: Your Guide</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=Noto+Sans+Telugu:wght@400;500;600&family=Noto+Serif+Telugu:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
+  <script src="/i18n.js"></script>
 </head>
 <body>
   <div class="wrap">
     <nav>
       <a class="logo" href="/">Atma<span>.</span></a>
-      <button id="logout" class="link hidden">Log out</button>
+      <div class="nav-right">
+        <button id="lang-toggle" class="lang" data-i18n="switch_to">తెలుగు</button>
+        <button id="logout" class="link hidden" data-i18n="logout">Log out</button>
+      </div>
     </nav>
 
     <!-- Sign up / log in -->
     <section id="auth" class="auth hidden">
-      <h2 id="auth-title" style="margin-top:0">Create your account</h2>
+      <h2 id="auth-title" style="margin-top:0"></h2>
       <form id="auth-form">
-        <input id="email" type="email" placeholder="Email" autocomplete="email" required>
-        <input id="password" type="password" placeholder="Password (8+ characters)" autocomplete="current-password" required minlength="8">
+        <input id="email" type="email" data-i18n-ph="email" autocomplete="email" required>
+        <input id="password" type="password" data-i18n-ph="password" autocomplete="current-password" required minlength="8">
         <div id="auth-error" class="error"></div>
-        <button class="btn" style="width:100%">Continue</button>
+        <button class="btn" style="width:100%" data-i18n="continue">Continue</button>
       </form>
-      <p style="text-align:center"><button id="auth-toggle" class="link">I already have an account</button></p>
+      <p style="text-align:center"><button id="auth-toggle" class="link"></button></p>
     </section>
 
     <!-- Main app -->
     <section id="main" class="hidden">
       <div class="status">
         <span id="plan"></span>
-        <button id="upgrade" class="btn hidden" style="padding:8px 18px">Upgrade: $4.99/mo</button>
-        <button id="manage" class="link hidden">Manage subscription</button>
+        <button id="upgrade" class="btn hidden" style="padding:8px 18px" data-i18n="upgrade_btn"></button>
+        <button id="manage" class="link hidden" data-i18n="manage"></button>
       </div>
       <div id="notice" class="verse hidden"></div>
 
       <div id="chat" class="chat"></div>
 
       <div class="suggestions" id="suggestions">
-        <button>I feel anxious about my future</button>
-        <button>How do I stop comparing myself to others?</button>
-        <button>I lost someone I love</button>
-        <button>I can't stay disciplined</button>
+        <button data-i18n="sugg1"></button>
+        <button data-i18n="sugg2"></button>
+        <button data-i18n="sugg3"></button>
+        <button data-i18n="sugg4"></button>
       </div>
 
       <div id="upsell" class="card upsell hidden">
-        <h3>You've used today's free questions</h3>
-        <p style="margin-bottom:14px">Become a Seeker for unlimited guidance, any time you need it.</p>
-        <button class="btn" data-upgrade>Upgrade for $4.99/month</button>
+        <h3 data-i18n="upsell_t"></h3>
+        <p style="margin-bottom:14px" data-i18n="upsell_d"></p>
+        <button class="btn" data-upgrade data-i18n="upsell_btn"></button>
       </div>
 
       <form id="ask" class="ask">
-        <textarea id="question" placeholder="What is on your heart today?" maxlength="2000" required></textarea>
-        <button id="send" class="btn" style="width:100%">Ask the guide</button>
+        <textarea id="question" data-i18n-ph="question_ph" maxlength="2000" required></textarea>
+        <button id="send" class="btn" style="width:100%" data-i18n="ask"></button>
       </form>
     </section>
   </div>
