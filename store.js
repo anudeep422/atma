@@ -80,8 +80,8 @@ export async function setPremiumByCustomer(stripeCustomerId, premium) {
 // ---- Journal: each user's past questions and answers (users/{uid}/entries) ----
 const entries = (uid) => users.doc(uid).collection("entries");
 
-export async function addEntry(uid, { question, answer, verseIds, lang, provider, topics }) {
-  const ref = await entries(uid).add({ question, answer, verseIds, lang, provider: provider ?? null, topics: topics ?? [], rating: null, createdAt: FieldValue.serverTimestamp() });
+export async function addEntry(uid, { question, answer, verseIds, teachingIds, lang, provider, topics }) {
+  const ref = await entries(uid).add({ question, answer, verseIds, teachingIds: teachingIds ?? [], lang, provider: provider ?? null, topics: topics ?? [], rating: null, createdAt: FieldValue.serverTimestamp() });
   return ref.id;
 }
 

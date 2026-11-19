@@ -4,6 +4,7 @@ import { runAI, parseJson } from "./guide.js";
 import { matchTopics, recommendations, isStrongMatch } from "./topics.js";
 import { VERSES, VERSE_BY_ID } from "./verses.js";
 import { PRACTICES, PRACTICE_BY_ID } from "./practices.js";
+import { TEACHINGS, TEACHING_BY_ID } from "./teachings.js";
 
 const MAX_HISTORY = 16; // messages sent to the AI (older ones are summarised by the commitment)
 
@@ -12,7 +13,7 @@ const COACH_PROMPT = `You are Atma Coach: a warm, wise and practical life coach.
 HOW YOU COACH (follow these stages):
 1. UNDERSTAND first. Ask ONE short, caring question at a time (never two). Learn the specifics: what exactly happens, who is involved (age, relationship), how often, what they already tried, how they feel, what they want instead.
    Usually ask 2–3 questions before advising; ask fewer if they already gave details. Never more than 4.
-2. GUIDE: in one sentence, reflect back what you understood (using THEIR details). Then share ONE verse whose meaning directly fits their situation (put its id in verse_ids; the app shows it just above your message) and explain in 1–2 plain sentences how it applies to THEM. Then offer 2–3 concrete, small options tailored to their details (numbered), and ask which one they'd like to try. You may add one practice (practice_ids) if it truly helps.
+2. GUIDE: in one sentence, reflect back what you understood (using THEIR details). Then share ONE verse whose meaning directly fits their situation (put its id in verse_ids; the app shows it just above your message) and explain in 1–2 plain sentences how it applies to THEM. Then offer 2–3 concrete, small options tailored to their details (numbered), and ask which one they'd like to try. You may add one practice (practice_ids) if it truly helps. You may also add ONE teaching of a modern master (teaching_ids) that complements the verse, and mention it naturally in your own words ("In a similar spirit, Krishnamurti taught..."); the app shows the teaching card.
 3. AGREE: when they choose, confirm warmly and fill "commitment" with:
    - "action": one specific step for today/tomorrow, using their details ("When Ravi ignores you, say it once at eye level and wait 10 seconds").
    - "sankalpa": one short first-person, present-tense sentence naming their situation and new behaviour ("When my son doesn't listen, I speak once, calmly, and wait.").
@@ -24,10 +25,13 @@ VERSES: only when sharing guidance, normally once per problem; never in every me
 QUICK REPLIES: give 2–4 short tap-able replies the person might send next (max 6 words each, in the person's language), e.g. the options you offered, or "Yes", "Not really". Use [] if a free answer is needed.
 
 SAFETY: never promise results (money, love, health). Wealth: honest effort, skill, wise money habits, generosity, contentment; no financial, investment, tax or legal advice. You are not a therapist or doctor: if someone mentions self-harm, abuse, violence or a medical emergency, respond with care and urge them to contact emergency services or a helpline (India: Tele-MANAS 14416) and someone they trust.
-Practices "inspired by" modern teachers (Neville Goddard, Osho, Gurdjieff, J. Krishnamurti, José Silva) are simple exercises, not religious authority.
+Modern masters (Neville Goddard, Osho, Gurdjieff, J. Krishnamurti, José Silva, Eckhart Tolle, Ramana Maharshi, Swami Vivekananda): only use teachings from the TEACHINGS LIBRARY, described in your own words. Never invent quotes or teachings and never attribute anything else to them. Scripture stays at the centre; masters are supporting voices.
 
 VERSE LIBRARY (id | reference | meaning):
 ${VERSES.map((v) => `${v.id} | ${v.ref} | ${v.english}`).join("\n")}
+
+TEACHINGS LIBRARY of modern masters (id | master | teaching | summary):
+${TEACHINGS.map((t) => `${t.id} | ${t.master} | ${t.title} | ${t.idea}`).join("\n")}
 
 PRACTICE LIBRARY (id | source | name | good for):
 ${PRACTICES.map((p) => `${p.id} | ${p.source} | ${p.name} | ${p.areas}`).join("\n")}`;
@@ -38,6 +42,7 @@ const REPLY_SCHEMA = {
     message: { type: "string" },
     verse_ids: { type: "array", items: { type: "string", enum: VERSES.map((v) => v.id) } },
     practice_ids: { type: "array", items: { type: "string", enum: PRACTICES.map((p) => p.id) } },
+    teaching_ids: { type: "array", items: { type: "string", enum: TEACHINGS.map((t) => t.id) } },
     quick_replies: { type: "array", items: { type: "string" } },
     commitment: {
       type: "object",
@@ -46,7 +51,7 @@ const REPLY_SCHEMA = {
       additionalProperties: false,
     },
   },
-  required: ["message", "verse_ids", "practice_ids", "quick_replies"],
+  required: ["message", "verse_ids", "practice_ids", "teaching_ids", "quick_replies"],
   additionalProperties: false,
 };
 
@@ -74,7 +79,7 @@ export async function coachTurn(conv, userText, lang) {
 
   const context = [
     rec.verses.length
-      ? `RECOMMENDED VERSES for this situation (best first):\n${rec.verses.map((id) => `- ${id} (${VERSE_BY_ID[id].ref}): ${VERSE_BY_ID[id].english}`).join("\n")}\nRECOMMENDED PRACTICES: ${rec.practices.join(", ")}`
+      ? `RECOMMENDED VERSES for this situation (best first):\n${rec.verses.map((id) => `- ${id} (${VERSE_BY_ID[id].ref}): ${VERSE_BY_ID[id].english}`).join("\n")}\nRECOMMENDED PRACTICES: ${rec.practices.join(", ")}\nRECOMMENDED TEACHINGS (modern masters): ${rec.teachings.map((id) => `${id} (${TEACHING_BY_ID[id].master}: ${TEACHING_BY_ID[id].title})`).join(", ")}`
       : "",
     conv.commitment
       ? `The person's current step (agreed earlier): "${conv.commitment.action}". Sankalpa: "${conv.commitment.sankalpa}".`
@@ -110,7 +115,7 @@ export async function coachTurn(conv, userText, lang) {
       message: lang === "te"
         ? "క్షమించండి, దీనికి నేను సహాయం చేయలేను. మీరు కష్టంలో ఉంటే, దయచేసి Tele-MANAS 14416 లేదా మీరు నమ్మే వ్యక్తిని సంప్రదించండి. 🙏"
         : "I'm sorry, I can't help with that. If you are going through something difficult, please reach out to Tele-MANAS 14416 or someone you trust. 🙏",
-      verseIds: ["shvetashvatara-6.11"], practiceIds: [], quickReplies: [], commitment: null, topics: topicIds, provider,
+      verseIds: ["shvetashvatara-6.11"], practiceIds: [], teachingIds: [], quickReplies: [], commitment: null, topics: topicIds, provider,
     };
   }
   const r = parseJson(raw);
@@ -119,6 +124,7 @@ export async function coachTurn(conv, userText, lang) {
     message: String(r.message ?? ""),
     verseIds: [...new Set(r.verse_ids ?? [])].filter((id) => VERSE_BY_ID[id]).slice(0, 1),
     practiceIds: [...new Set(r.practice_ids ?? [])].filter((id) => PRACTICE_BY_ID[id]).slice(0, 1),
+    teachingIds: [...new Set(r.teaching_ids ?? [])].filter((id) => TEACHING_BY_ID[id]).slice(0, 1),
     quickReplies: (r.quick_replies ?? []).map(String).filter(Boolean).slice(0, 4),
     commitment: c?.action && c?.sankalpa ? { action: String(c.action), sankalpa: String(c.sankalpa) } : null,
     topics: topicIds,
@@ -150,6 +156,7 @@ export function hydrateMessage(m) {
     ...m,
     verses: (m.verseIds ?? []).map((id) => VERSE_BY_ID[id]).filter(Boolean),
     practices: (m.practiceIds ?? []).map((id) => PRACTICE_BY_ID[id]).filter(Boolean),
+    teachings: (m.teachingIds ?? []).map((id) => TEACHING_BY_ID[id]).filter(Boolean),
   };
 }
 
@@ -168,7 +175,7 @@ function demoTurn(conv, lang, rec) {
   }
   if (userCount === 1) {
     return { message: te ? "(డెమో) ధన్యవాదాలు. పై శ్లోకం మీ పరిస్థితికి సరిపోతుంది. ఈ రెండు ఎంపికలలో ఏది ప్రయత్నిస్తారు? 1) ఒక శ్వాస ఆగండి 2) ఒక్కసారి ప్రశాంతంగా చెప్పండి" : "(Demo) Thank you. The verse above fits your situation. Which would you like to try? 1) Pause for one breath 2) Say it once, calmly",
-      verseIds: [verse], practiceIds: ["kind-speech"], quickReplies: te ? ["1", "2"] : ["Option 1", "Option 2"], commitment: null };
+      verseIds: [verse], practiceIds: ["kind-speech"], teachingIds: rec.teachings.slice(0, 1), quickReplies: te ? ["1", "2"] : ["Option 1", "Option 2"], commitment: null };
   }
   return { message: te ? "(డెమో) అద్భుతం! రేపు ఎలా జరిగిందో అడుగుతాను." : "(Demo) Wonderful! I'll ask you tomorrow how it went.",
     verseIds: [], practiceIds: [], quickReplies: [],

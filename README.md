@@ -97,6 +97,7 @@ FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:808
 | `public/manifest.webmanifest`, `public/sw.js`, `public/pwa.js` | Lets people install Atma on their phone's home screen |
 | `topics.js` | **Topic map**: ~30 life situations with verses and practices chosen by people. Strong matches limit the AI to these verses; add keywords (EN/TE) or reorder verses here to improve answers. The Stats page counts topics, and `topic_none` shows questions not covered yet |
 | `coach.js` | The Coach conversation: instructions, follow-up and greeting messages (uses `topics.js`, `verses.js`, `practices.js`) |
+| `teachings.js` | **Modern masters' teachings** (Neville Goddard, Osho, Gurdjieff, J. Krishnamurti, José Silva, Eckhart Tolle, Ramana Maharshi, Swami Vivekananda), 47 core ideas summarised in our own words, EN + TE. The AI only chooses; review before launch |
 | `practices.js` | Practices library (traditional + "inspired by" Neville Goddard, Osho, Gurdjieff, J. Krishnamurti, José Silva), English + Telugu. Review before launch |
 | `translit.js` | Converts Sanskrit (Roman letters) to Telugu script |
 | `public/i18n.js` | All English/Telugu website text: edit wording here |

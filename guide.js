@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import Groq from "groq-sdk";
 import { VERSES, VERSE_BY_ID } from "./verses.js";
 import { matchTopics, recommendations, isStrongMatch } from "./topics.js";
+import { TEACHINGS, TEACHING_BY_ID } from "./teachings.js";
 
 // Which AI answers questions:
 //   ANTHROPIC_API_KEY -> Claude (paid, best quality); used alone when set
@@ -45,9 +46,13 @@ How to answer:
 - You are not a doctor, therapist, lawyer or financial adviser. For medical, legal or financial matters, gently suggest a qualified professional as well.
 - If the person mentions wanting to harm themselves or others, or being in danger, respond with care first: encourage them to contact local emergency services or a crisis helpline right now (for example 988 in the US, Tele-MANAS 14416 in India, or findahelpline.com), and to reach out to someone they trust. Choose a gentle comforting verse.
 - If the question has nothing to do with life, spirit or self-growth, kindly steer back to what you can help with.
+- You may add ONE teaching of a modern master (teaching_ids) from the TEACHINGS LIBRARY when it adds a helpful modern angle to the verse (prefer RECOMMENDED TEACHINGS), and mention it in your own words ("In a similar spirit, Vivekananda taught..."). Never invent quotes or teachings, and never attribute anything else to these masters. Scripture stays at the centre.
 
 VERSE LIBRARY (id | reference | themes | meaning):
-${VERSES.map((v) => `${v.id} | ${v.ref} | ${v.theme} | ${v.english}`).join("\n")}`;
+${VERSES.map((v) => `${v.id} | ${v.ref} | ${v.theme} | ${v.english}`).join("\n")}
+
+TEACHINGS LIBRARY of modern masters (id | master | teaching | summary):
+${TEACHINGS.map((t) => `${t.id} | ${t.master} | ${t.title} | ${t.idea}`).join("\n")}`;
 
 const OUTPUT_SCHEMA = {
   type: "object",
@@ -57,8 +62,12 @@ const OUTPUT_SCHEMA = {
       type: "array",
       items: { type: "string", enum: VERSES.map((v) => v.id) },
     },
+    teaching_ids: {
+      type: "array",
+      items: { type: "string", enum: TEACHINGS.map((t) => t.id) },
+    },
   },
-  required: ["answer", "verse_ids"],
+  required: ["answer", "verse_ids", "teaching_ids"],
   additionalProperties: false,
 };
 
@@ -84,7 +93,7 @@ export async function askGuide(question, history = [], lang = "en") {
   const rec = recommendations(topics);
   const schema = rec.verses.length && isStrongMatch(topics) ? withVerseChoices(OUTPUT_SCHEMA, rec.verses) : OUTPUT_SCHEMA;
   const prompt = rec.verses.length
-    ? `${question}\n\n(RECOMMENDED VERSES for this situation, best first: ${rec.verses.map((id) => `${id} (${VERSE_BY_ID[id].ref})`).join(", ")})`
+    ? `${question}\n\n(RECOMMENDED VERSES for this situation, best first: ${rec.verses.map((id) => `${id} (${VERSE_BY_ID[id].ref})`).join(", ")}. RECOMMENDED TEACHINGS: ${rec.teachings.map((id) => `${id} (${TEACHING_BY_ID[id].master})`).join(", ")})`
     : question;
   const topicIds = topics.map((t) => t.id);
 
@@ -92,6 +101,7 @@ export async function askGuide(question, history = [], lang = "en") {
   if (provider === "demo") {
     const demo = demoAnswer(question, lang);
     if (rec.verses.length) demo.verses = [VERSE_BY_ID[rec.verses[0]]];
+    demo.teachings = rec.teachings.slice(0, 1).map((id) => TEACHING_BY_ID[id]);
     return { ...demo, provider, topics: topicIds };
   }
   if (provider === "demo") return { ...demoAnswer(question, lang), provider };
@@ -101,7 +111,8 @@ export async function askGuide(question, history = [], lang = "en") {
     .map((id) => VERSE_BY_ID[id])
     .filter(Boolean)
     .slice(0, 2);
-  return { answer: String(parsed.answer ?? ""), verses, provider, topics: topicIds };
+  const teachings = [...new Set(parsed.teaching_ids ?? [])].map((id) => TEACHING_BY_ID[id]).filter(Boolean).slice(0, 1);
+  return { answer: String(parsed.answer ?? ""), verses, teachings, provider, topics: topicIds };
 }
 
 /** Copy of a schema whose verse_ids may only be the given ids. */

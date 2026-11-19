@@ -138,3 +138,9 @@ table.stats th:first-child, table.stats td:first-child { text-align: left; }
 .commit-sankalpa { font: italic 500 18px/1.4 var(--serif); color: var(--saffron-dark); margin: 0; }
 #coach .msg.guide p { margin: 0 0 8px; white-space: pre-wrap; }
 #coach-quick button { white-space: normal; text-align: left; }
+
+/* modern master's teaching card */
+.teaching { background: var(--card); border: 1px solid var(--line); border-left: 4px solid #8a6bb8; border-radius: 10px; padding: 12px 14px; margin-top: 10px; }
+.teaching-head { font-weight: 600; }
+.teaching p { margin: 6px 0 4px; }
+.teaching-note { font-size: 11px; color: var(--muted); }

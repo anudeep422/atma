@@ -5,6 +5,7 @@ import * as store from "./store.js";
 import { askGuide, GuideBusyError, AI_PROVIDER, describeAiError } from "./guide.js";
 import { verseOfTheDay, VERSE_BY_ID } from "./verses.js";
 import * as coach from "./coach.js";
+import { TEACHING_BY_ID } from "./teachings.js";
 
 const PORT = Number(process.env.PORT || 3000);
 const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
@@ -106,7 +107,7 @@ app.post("/api/ask", requireUser, async (req, res) => {
     await store.recordQuestion(req.user.id);
     // Save to the user's journal (a failure here shouldn't lose the answer).
     const entryId = await store
-      .addEntry(req.user.id, { question, answer: result.answer, verseIds: result.verses.map((v) => v.id), lang, provider: result.provider, topics: result.topics ?? [] })
+      .addEntry(req.user.id, { question, answer: result.answer, verseIds: result.verses.map((v) => v.id), teachingIds: (result.teachings ?? []).map((x) => x.id), lang, provider: result.provider, topics: result.topics ?? [] })
       .catch((err) => console.error("journal save failed:", err.message));
     // Which topics people ask about ("topic_none" = not in the topic map yet: a candidate for new content).
     const topicCounts = Object.fromEntries((result.topics?.length ? result.topics : ["none"]).map((t) => [`topic_${t.replace(/-/g, "_")}`, 1]));
@@ -126,7 +127,11 @@ app.post("/api/ask", requireUser, async (req, res) => {
 
 app.get("/api/journal", requireUser, async (req, res) => {
   const list = await store.listEntries(req.user.id);
-  res.json(list.map((e) => ({ ...e, verses: (e.verseIds ?? []).map((id) => VERSE_BY_ID[id]).filter(Boolean) })));
+  res.json(list.map((e) => ({
+    ...e,
+    verses: (e.verseIds ?? []).map((id) => VERSE_BY_ID[id]).filter(Boolean),
+    teachings: (e.teachingIds ?? []).map((id) => TEACHING_BY_ID[id]).filter(Boolean),
+  })));
 });
 
 app.delete("/api/journal/:id", requireUser, async (req, res) => {
@@ -182,7 +187,7 @@ app.post("/api/coach/message", requireUser, async (req, res) => {
     const isNewConversation = !chat.messages.some((m) => m.role === "user");
     chat.messages.push({ role: "user", text, at: now });
     chat.messages.push({
-      role: "coach", text: turn.message, verseIds: turn.verseIds, practiceIds: turn.practiceIds,
+      role: "coach", text: turn.message, verseIds: turn.verseIds, practiceIds: turn.practiceIds, teachingIds: turn.teachingIds ?? [],
       quickReplies: turn.quickReplies, provider: turn.provider, at: now,
     });
     if (turn.commitment) chat.commitment = { ...turn.commitment, date: todayStr() };

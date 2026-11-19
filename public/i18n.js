@@ -5,6 +5,7 @@
 const STRINGS = {
   en: {
     switch_to: "తెలుగు",
+    own_words: "Teaching summarised in our own words",
     your_step: "🎯 Your current step",
     coach_ph: "Type your reply…",
     send: "Send",
@@ -121,6 +122,7 @@ const STRINGS = {
   },
   te: {
     switch_to: "English",
+    own_words: "బోధన సారాంశం, మా మాటల్లో",
     your_step: "🎯 మీ ప్రస్తుత అడుగు",
     coach_ph: "మీ సమాధానం రాయండి…",
     send: "పంపండి",
@@ -272,6 +274,7 @@ function applyLang() {
   document.querySelectorAll("[data-i18n-html]").forEach((el) => (el.innerHTML = t(el.dataset.i18nHtml, { contact: contactHtml() })));
   document.querySelectorAll("[data-i18n-ph]").forEach((el) => (el.placeholder = t(el.dataset.i18nPh)));
   document.querySelectorAll(".verse[data-verse]").forEach(fillVerse);
+  document.querySelectorAll(".teaching[data-teaching]").forEach((el) => el.replaceWith(teachingEl(JSON.parse(el.dataset.teaching))));
   onLangChange.forEach((fn) => fn(LANG));
 }
 
@@ -312,6 +315,24 @@ function fillVerse(box) {
     bar.append(share, listen);
     box.appendChild(bar);
   }
+}
+
+// Teaching card for a modern master (text from teachings.js, in our own words).
+function teachingEl(tc) {
+  const te = LANG === "te";
+  const box = document.createElement("div");
+  box.className = "teaching";
+  const head = document.createElement("div");
+  head.className = "teaching-head";
+  head.textContent = `💡 ${te ? tc.master_te : tc.master} · ${te ? tc.title_te : tc.title}`;
+  const idea = document.createElement("p");
+  idea.textContent = te ? tc.idea_te : tc.idea;
+  const note = document.createElement("div");
+  note.className = "teaching-note";
+  note.textContent = t("own_words");
+  box.append(head, idea, note);
+  box.dataset.teaching = JSON.stringify(tc);
+  return box;
 }
 
 function verseEl(v) {

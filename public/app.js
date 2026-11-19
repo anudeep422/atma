@@ -153,7 +153,7 @@ onLangChange.push(() => {
   if (me) { renderPlan(); renderNotice(); } else renderAuthText();
 });
 
-function addMessage(role, text, verses = []) {
+function addMessage(role, text, verses = [], teachings = []) {
   const el = document.createElement("div");
   el.className = `msg ${role}`;
   if (role === "user") {
@@ -164,6 +164,7 @@ function addMessage(role, text, verses = []) {
     p.textContent = text;
     if (role === "thinking") { el.className = "msg guide"; p.className = "thinking"; }
     el.appendChild(p);
+    teachings.forEach((tc) => el.appendChild(teachingEl(tc)));
   }
   $("chat").appendChild(el);
   el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -201,7 +202,7 @@ $("ask").onsubmit = async (e) => {
     return;
   }
 
-  const answerEl = addMessage("guide", data.answer, data.verses);
+  const answerEl = addMessage("guide", data.answer, data.verses, data.teachings ?? []);
   if (data.entryId) answerEl.appendChild(feedbackRow(data.entryId));
   history.push({ role: "user", content: question }, { role: "assistant", content: data.answer });
   history = history.slice(-6);
@@ -286,6 +287,7 @@ async function openJournal() {
     const p = document.createElement("p");
     p.textContent = e.answer;
     item.appendChild(p);
+    (e.teachings ?? []).forEach((tc) => item.appendChild(teachingEl(tc)));
     const del = document.createElement("button");
     del.className = "link";
     del.textContent = t("delete");
@@ -353,6 +355,7 @@ function coachMessageEl(m) {
   const p = document.createElement("p");
   p.textContent = m.text;
   el.appendChild(p);
+  (m.teachings ?? []).forEach((tc) => el.appendChild(teachingEl(tc)));
   (m.practices ?? []).forEach((pr) => el.appendChild(practiceEl(pr)));
   return el;
 }
