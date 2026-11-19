@@ -67,8 +67,11 @@ export async function createPlan({ area, goal, lang }) {
 Area: ${AREA_LABEL[area]}
 My goal, in my own words: """${goal}"""
 
-Return: "title" (short, max 8 words), "sankalpa" (one short present-tense intention sentence the user repeats daily, first person),
-"why" (2–3 sentences linking the chosen verse to the goal), 1–2 "verse_ids", 1–3 "practice_ids",
+Return: "title" (short, max 8 words),
+"sankalpa" (one short first-person, present-tense sentence the user repeats daily. It must name THEIR specific situation and the NEW behaviour,
+  e.g. "When I reach for my phone, I pause and take one breath first." or "When my son doesn't listen, I lower my voice and listen first."
+  Not a vague quality like "I act with awareness."),
+"why" (2–3 sentences linking the chosen verse to the goal; describe only what the verse actually says, without adding ideas it does not contain), 1–2 "verse_ids", 1–3 "practice_ids",
 and exactly ${PLAN_DAYS} "days", each with one small concrete "action" (1–2 sentences) and optionally the "practice_id" used that day.
 Day 1 should be very easy; build up gently.`;
   const topics = matchTopics(goal);
