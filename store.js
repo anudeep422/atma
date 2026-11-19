@@ -6,8 +6,19 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 const usingEmulator = Boolean(process.env.FIREBASE_AUTH_EMULATOR_HOST);
 
 // FIREBASE_SERVICE_ACCOUNT holds the JSON of a service account key (keep it secret!).
+function serviceAccount() {
+  try {
+    return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  } catch {
+    throw new Error(
+      "FIREBASE_SERVICE_ACCOUNT is not valid JSON. Open the downloaded key file in Notepad, " +
+      "copy ALL of it (from the first { to the last }) and paste it again in Render > Environment.",
+    );
+  }
+}
+
 const firebaseApp = process.env.FIREBASE_SERVICE_ACCOUNT
-  ? initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) })
+  ? initializeApp({ credential: cert(serviceAccount()) })
   : initializeApp({ projectId: process.env.GCLOUD_PROJECT || "demo-atma" });
 
 export const firebaseReady = Boolean(process.env.FIREBASE_SERVICE_ACCOUNT) || usingEmulator;

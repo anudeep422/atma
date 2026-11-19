@@ -58,6 +58,7 @@ const STRINGS = {
     reset_sent: "Password reset email sent. Please check your inbox.",
     reset_need_email: "Type your email above first, then tap \"Forgot password?\".",
     err_too_many: "Too many attempts. Please wait a few minutes and try again.",
+    err_payments_soon: "Upgrades are coming soon. Thank you for your patience! 🙏",
     err_generic: "Something went wrong. Please try again.",
   },
   te: {
@@ -115,6 +116,7 @@ const STRINGS = {
     reset_sent: "పాస్‌వర్డ్ రీసెట్ ఈమెయిల్ పంపాము. దయచేసి మీ ఇన్‌బాక్స్ చూడండి.",
     reset_need_email: "ముందుగా పైన మీ ఈమెయిల్ ఇచ్చి, తర్వాత \"పాస్‌వర్డ్ మర్చిపోయారా?\" నొక్కండి.",
     err_too_many: "చాలా ప్రయత్నాలు జరిగాయి. కొన్ని నిమిషాలు ఆగి మళ్ళీ ప్రయత్నించండి.",
+    err_payments_soon: "అప్‌గ్రేడ్ త్వరలో అందుబాటులోకి వస్తుంది. మీ ఓపికకు ధన్యవాదాలు! 🙏",
     err_generic: "ఏదో పొరపాటు జరిగింది. దయచేసి మళ్ళీ ప్రయత్నించండి.",
   },
 };

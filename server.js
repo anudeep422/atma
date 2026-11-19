@@ -10,10 +10,13 @@ const PORT = Number(process.env.PORT || 3000);
 const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
 const FREE_PER_DAY = Number(process.env.FREE_QUESTIONS_PER_DAY || 3);
 const IS_PROD = process.env.NODE_ENV === "production";
+// Free "demo" upgrades are only allowed on your own computer, never on a live site.
+const ONLINE = IS_PROD || Boolean(process.env.RENDER);
 
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
-if (IS_PROD && !stripe) throw new Error("STRIPE_SECRET_KEY is required in production");
-if (IS_PROD && !store.firebaseReady) throw new Error("FIREBASE_SERVICE_ACCOUNT is required in production");
+if (ONLINE && !store.firebaseReady) {
+  throw new Error("FIREBASE_SERVICE_ACCOUNT is missing. Add it in Render > Environment (see README).");
+}
 
 // Public Firebase web settings (safe to publish). Filled in from your Firebase project.
 const firebaseWebConfig = store.firebaseEmulator
@@ -105,7 +108,9 @@ app.post("/api/ask", requireUser, async (req, res) => {
 
 app.post("/api/checkout", requireUser, async (req, res) => {
   if (!stripe) {
-    // Demo mode (local only): upgrade instantly so you can test the premium experience.
+    // Online without Stripe: payments are not set up yet, so never upgrade for free.
+    if (ONLINE) return res.status(503).json({ error: "Payments are coming soon.", code: "payments_soon" });
+    // Demo mode (your own computer only): upgrade instantly to test the premium experience.
     await store.setPremium(req.user.id, true);
     return res.json({ url: "/app.html?upgraded=demo" });
   }
@@ -132,6 +137,6 @@ app.post("/api/billing-portal", requireUser, async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Atma running at ${APP_URL}`);
   console.log(`  AI guide: ${process.env.ANTHROPIC_API_KEY ? "Claude (live)" : "DEMO mode (set ANTHROPIC_API_KEY)"}`);
-  console.log(`  Payments: ${stripe ? "Stripe" : "DEMO mode (set STRIPE_SECRET_KEY)"}`);
+  console.log(`  Payments: ${stripe ? "Stripe" : ONLINE ? "NOT SET UP (upgrade button shows 'coming soon')" : "DEMO mode (set STRIPE_SECRET_KEY)"}`);
   console.log(`  Accounts: ${store.firebaseEmulator ? "Firebase EMULATOR" : store.firebaseReady ? "Firebase" : "NOT CONFIGURED (set FIREBASE_SERVICE_ACCOUNT)"}`);
 });
