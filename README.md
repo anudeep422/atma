@@ -91,6 +91,8 @@ FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:808
 | `firebase-config.json` | Your Firebase project's public web settings |
 | `public/verse-actions.js` | Share verse as an image card (WhatsApp) and read verses aloud |
 | `public/privacy.html`, `public/about.html` | Privacy and About pages (text lives in `public/i18n.js`; set `CONTACT_EMAIL` for the contact link) |
+| `public/stats.html` | Private stats (users, questions, 👍/👎 per AI, shares). Set `ADMIN_EMAILS` to your email to open it |
+| `public/manifest.webmanifest`, `public/sw.js`, `public/pwa.js` | Lets people install Atma on their phone's home screen |
 | `translit.js` | Converts Sanskrit (Roman letters) to Telugu script |
 | `public/i18n.js` | All English/Telugu website text: edit wording here |
 | `public/` | Landing page and app UI |

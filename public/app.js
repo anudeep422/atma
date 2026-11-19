@@ -144,6 +144,7 @@ function showMain(user) {
   $("main").classList.remove("hidden");
   $("logout").classList.remove("hidden");
   $("journal-btn").classList.remove("hidden");
+  $("stats-link").classList.toggle("hidden", !user.admin);
   renderPlan();
   renderNotice();
 }
@@ -200,7 +201,8 @@ $("ask").onsubmit = async (e) => {
     return;
   }
 
-  addMessage("guide", data.answer, data.verses);
+  const answerEl = addMessage("guide", data.answer, data.verses);
+  if (data.entryId) answerEl.appendChild(feedbackRow(data.entryId));
   history.push({ role: "user", content: question }, { role: "assistant", content: data.answer });
   history = history.slice(-6);
   me = data.me;
@@ -223,6 +225,29 @@ $("manage").onclick = async () => {
   if (ok && data.url) location.href = data.url;
   else alert(errorText(data));
 };
+
+// 👍 / 👎 under each answer
+function feedbackRow(entryId) {
+  const row = document.createElement("div");
+  row.className = "feedback";
+  const label = document.createElement("span");
+  label.textContent = t("helpful_q");
+  row.appendChild(label);
+  for (const [rating, emoji] of [["up", "👍"], ["down", "👎"]]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = emoji;
+    b.setAttribute("aria-label", rating === "up" ? "Helpful" : "Not helpful");
+    b.onclick = async () => {
+      row.querySelectorAll("button").forEach((x) => (x.disabled = true));
+      const { ok } = await api("/api/feedback", { entryId, rating });
+      if (ok) label.textContent = t("thanks_feedback");
+      row.querySelectorAll("button").forEach((x) => { x.disabled = false; x.classList.toggle("chosen", x === b); });
+    };
+    row.appendChild(b);
+  }
+  return row;
+}
 
 // ---------- journal ----------
 function formatDate(iso) {

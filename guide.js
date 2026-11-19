@@ -80,25 +80,28 @@ const LANGUAGE_NOTE = {
 export async function askGuide(question, history = [], lang = "en") {
   const note = `(App note: ${LANGUAGE_NOTE[lang] ?? LANGUAGE_NOTE.en})`;
   let raw;
-  if (claude) raw = await askClaude(question, history, note);
+  let provider;
+  if (claude) { raw = await askClaude(question, history, note); provider = "claude"; }
   else if (gemini) {
     try {
       raw = await askGemini(question, history, note, lang);
+      provider = "gemini";
     } catch (err) {
       if (!groq) throw err;
       console.warn("Gemini unavailable, using Groq backup");
       try {
         raw = await askGroq(question, history, note, lang);
+        provider = "groq";
       } catch (groqErr) {
         const both = groqErr instanceof GuideBusyError ? groqErr : err;
         both.detail = `${err.detail ?? describeAiError(err)} || Groq: ${groqErr.detail ?? describeAiError(groqErr)}`;
         throw both;
       }
     }
-  } else if (groq) raw = await askGroq(question, history, note, lang);
-  else return demoAnswer(question, lang);
+  } else if (groq) { raw = await askGroq(question, history, note, lang); provider = "groq"; }
+  else return { ...demoAnswer(question, lang), provider: "demo" };
 
-  if (raw === null) return declined(lang);
+  if (raw === null) return { ...declined(lang), provider };
 
   let parsed;
   try {
@@ -112,7 +115,7 @@ export async function askGuide(question, history = [], lang = "en") {
     .map((id) => VERSE_BY_ID[id])
     .filter(Boolean)
     .slice(0, 2);
-  return { answer: String(parsed.answer ?? ""), verses };
+  return { answer: String(parsed.answer ?? ""), verses, provider };
 }
 
 // Returns the JSON text, or null if the model declined.

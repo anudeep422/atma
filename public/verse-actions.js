@@ -126,8 +126,9 @@ async function shareVerse(v, button) {
     const te = LANG === "te";
     const text = `${te ? v.english_te : v.english}\n— ${te ? v.ref_te : v.ref}\n\n${t("card_cta")}: ${location.origin}`;
     if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], text }).catch(() => {}); // user may cancel
+      await navigator.share({ files: [file], text }).then(() => track("share")).catch(() => {}); // user may cancel
     } else {
+      track("share");
       // Computers: download the image instead.
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -175,6 +176,7 @@ function speakVerse(v, button) {
   });
   speakingButton = button;
   button.textContent = t("stop");
+  track("listen");
 }
 
 // Voices load asynchronously in some browsers.

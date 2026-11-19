@@ -108,3 +108,15 @@ footer { text-align: center; color: var(--muted); font-size: 13px; padding: 48px
 .page p, .page li { color: var(--ink); }
 .page .muted { color: var(--muted); font-size: 14px; }
 footer a { color: var(--muted); }
+
+.feedback { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 14px; color: var(--muted); }
+.feedback button { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; font-size: 16px; }
+.feedback button.chosen { border-color: var(--saffron); background: var(--verse-bg); }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 16px 0; }
+.stat-grid .card { padding: 14px 16px; }
+.stat-grid .num { font: 600 32px var(--serif); }
+.stat-grid .lbl { font-size: 13px; color: var(--muted); }
+.table-wrap { overflow-x: auto; }
+table.stats { border-collapse: collapse; width: 100%; font-size: 14px; background: var(--card); }
+table.stats th, table.stats td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: right; white-space: nowrap; }
+table.stats th:first-child, table.stats td:first-child { text-align: left; }

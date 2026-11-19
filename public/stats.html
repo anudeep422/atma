@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atma Stats</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=Noto+Sans+Telugu:wght@400;500;600&family=Noto+Serif+Telugu:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#d9771f">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/icon-maskable-512.png">
+  <script src="/pwa.js" defer></script>
+  <script src="/i18n.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a class="logo" href="/">Atma<span>.</span></a>
+      <div class="nav-right"><a class="btn ghost" href="/app.html">Open app</a></div>
+    </nav>
+    <h1 style="font:600 36px var(--serif);margin:8px 0">Stats <small style="font:400 14px var(--sans);color:var(--muted)">last 14 days · private</small></h1>
+    <p id="msg" style="color:var(--muted)">Loading…</p>
+    <div id="cards" class="stat-grid"></div>
+    <div class="table-wrap"><table id="table" class="stats hidden"></table></div>
+    <p style="color:var(--muted);font-size:13px">
+      <b>Active</b> = asked at least one question that day. <b>Returning</b> = active on 2+ different days.
+      👍/👎 by AI shows which service gives better answers. Shares, listens and installs count everyone, signed in or not.
+    </p>
+  </div>
+  <script src="/firebase-auth.js"></script>
+  <script>
+    const el = (id) => document.getElementById(id);
+    const n = (v) => Number(v ?? 0);
+    AtmaAuth.init(async (user) => {
+      if (!user) { el("msg").innerHTML = 'Please <a href="/app.html">log in</a> first.'; return; }
+      const res = await fetch("/api/stats", { headers: { Authorization: `Bearer ${await AtmaAuth.token()}` } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { el("msg").textContent = data.error || "Could not load stats."; return; }
+      el("msg").textContent = "";
+      const sum = (k) => data.days.reduce((a, d) => a + n(d[k]), 0);
+      const cards = [
+        ["Total users", data.totalUsers], ["Active users", data.activeUsers], ["Returning users", data.returningUsers],
+        ["Questions", sum("questions")], ["👍 / 👎", `${sum("up")} / ${sum("down")}`],
+        ["Shares", sum("shares")], ["Listens", sum("listens")], ["Installs", sum("installs")],
+      ];
+      el("cards").innerHTML = cards.map(([l, v]) => `<div class="card"><div class="num">${v}</div><div class="lbl">${l}</div></div>`).join("");
+      const cols = [
+        ["Day", (d) => d.day.slice(5)], ["New users", (d) => n(d.signups)], ["Active", (d) => d.activeUsers],
+        ["Questions", (d) => n(d.questions)], ["Telugu", (d) => n(d.q_te)], ["English", (d) => n(d.q_en)],
+        ["Gemini", (d) => n(d.by_gemini)], ["Groq", (d) => n(d.by_groq)],
+        ["👍 Gemini", (d) => n(d.up_gemini)], ["👎 Gemini", (d) => n(d.down_gemini)],
+        ["👍 Groq", (d) => n(d.up_groq)], ["👎 Groq", (d) => n(d.down_groq)],
+        ["Shares", (d) => n(d.shares)], ["Listens", (d) => n(d.listens)], ["Installs", (d) => n(d.installs)],
+      ];
+      const t = el("table");
+      t.innerHTML = `<tr>${cols.map(([h]) => `<th>${h}</th>`).join("")}</tr>` +
+        data.days.map((d) => `<tr>${cols.map(([, f]) => `<td>${f(d)}</td>`).join("")}</tr>`).join("");
+      t.classList.remove("hidden");
+    });
+  </script>
+</body>
+</html>

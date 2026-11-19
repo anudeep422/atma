@@ -7,6 +7,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=Noto+Sans+Telugu:wght@400;500;600&family=Noto+Serif+Telugu:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#d9771f">
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/icon-maskable-512.png">
+  <script src="/pwa.js" defer></script>
   <script src="/i18n.js"></script>
   <script src="/verse-actions.js"></script>
 </head>
@@ -16,6 +21,7 @@
       <a class="logo" href="/">Atma<span>.</span></a>
       <div class="nav-right">
         <button id="lang-toggle" class="lang" data-i18n="switch_to">తెలుగు</button>
+        <a id="stats-link" class="link hidden" href="/stats.html" data-i18n="stats">Stats</a>
         <button id="journal-btn" class="link hidden" data-i18n="journal">My journal</button>
         <button id="logout" class="link hidden" data-i18n="logout">Log out</button>
       </div>

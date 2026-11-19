@@ -5,6 +5,10 @@
 const STRINGS = {
   en: {
     switch_to: "తెలుగు",
+    helpful_q: "Was this helpful?",
+    thanks_feedback: "Thank you for your feedback 🙏",
+    stats: "Stats",
+    install_app: "📲 Install app on this phone",
     open_app: "Open app",
     contact_owner: "the app owner",
     footer_links: '<a href="/about.html">About Atma</a> · <a href="/privacy.html">Privacy</a>',
@@ -107,6 +111,10 @@ const STRINGS = {
   },
   te: {
     switch_to: "English",
+    helpful_q: "ఇది ఉపయోగపడిందా?",
+    thanks_feedback: "మీ అభిప్రాయానికి ధన్యవాదాలు 🙏",
+    stats: "గణాంకాలు",
+    install_app: "📲 ఈ ఫోన్‌లో యాప్ ఇన్‌స్టాల్ చేయండి",
     open_app: "యాప్ తెరవండి",
     contact_owner: "యాప్ యజమాని",
     footer_links: '<a href="/about.html">ఆత్మ గురించి</a> · <a href="/privacy.html">గోప్యత</a>',
@@ -219,6 +227,11 @@ function initialLang() {
 
 let LANG = initialLang();
 const onLangChange = [];
+
+// Anonymous usage counters (shares, listens, installs) for the owner's stats page.
+function track(type) {
+  fetch("/api/event", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type }) }).catch(() => {});
+}
 
 let CONTACT = ""; // contact email, set by pages that need it (from /api/config)
 

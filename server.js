@@ -11,6 +11,9 @@ const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
 // To bring the limit back, set FREE_QUESTIONS_PER_DAY=3 on Render.
 const FREE_PER_DAY = Number(process.env.FREE_QUESTIONS_PER_DAY || 0);
 const UNLIMITED = !(FREE_PER_DAY > 0);
+// Who can open the private stats page (comma-separated emails), e.g. ADMIN_EMAILS=you@gmail.com
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+const isAdmin = (u) => Boolean(u.email) && ADMIN_EMAILS.includes(u.email.toLowerCase());
 const IS_PROD = process.env.NODE_ENV === "production";
 // Free "demo" upgrades are only allowed on your own computer, never on a live site.
 const ONLINE = IS_PROD || Boolean(process.env.RENDER);
@@ -64,12 +67,13 @@ async function requireUser(req, res, next) {
 }
 
 const publicUser = async (u) => {
-  if (UNLIMITED) return { email: u.email, premium: Boolean(u.premium), unlimited: true, remainingToday: null };
+  if (UNLIMITED) return { email: u.email, premium: Boolean(u.premium), unlimited: true, remainingToday: null, admin: isAdmin(u) };
   const used = await store.questionsUsedToday(u.id);
   return {
     email: u.email,
     premium: Boolean(u.premium),
     freePerDay: FREE_PER_DAY,
+    admin: isAdmin(u),
     remainingToday: u.premium ? null : Math.max(0, FREE_PER_DAY - used),
   };
 };
@@ -101,8 +105,9 @@ app.post("/api/ask", requireUser, async (req, res) => {
     await store.recordQuestion(req.user.id);
     // Save to the user's journal (a failure here shouldn't lose the answer).
     const entryId = await store
-      .addEntry(req.user.id, { question, answer: result.answer, verseIds: result.verses.map((v) => v.id), lang })
+      .addEntry(req.user.id, { question, answer: result.answer, verseIds: result.verses.map((v) => v.id), lang, provider: result.provider })
       .catch((err) => console.error("journal save failed:", err.message));
+    store.bumpStats({ questions: 1, [`q_${lang}`]: 1, [`by_${result.provider}`]: 1 }).catch(() => {});
     res.json({ ...result, entryId, me: await publicUser(req.user) });
   } catch (err) {
     // "detail" shows the AI provider's reason (e.g. quota or model problems) so it can be fixed quickly.
@@ -124,6 +129,34 @@ app.get("/api/journal", requireUser, async (req, res) => {
 app.delete("/api/journal/:id", requireUser, async (req, res) => {
   await store.deleteEntry(req.user.id, String(req.params.id));
   res.json({ ok: true });
+});
+
+// 👍 / 👎 on an answer
+app.post("/api/feedback", requireUser, async (req, res) => {
+  const rating = req.body.rating === "up" ? "up" : req.body.rating === "down" ? "down" : null;
+  if (!rating || !req.body.entryId) return res.status(400).json({ error: "Bad feedback" });
+  const r = await store.rateEntry(req.user.id, String(req.body.entryId), rating);
+  if (!r) return res.status(404).json({ error: "Not found" });
+  if (r.previous !== rating) {
+    const counts = { [rating]: 1, [`${rating}_${r.provider}`]: 1 };
+    if (r.previous) Object.assign(counts, { [r.previous]: -1, [`${r.previous}_${r.provider}`]: -1 });
+    await store.bumpStats(counts);
+  }
+  res.json({ ok: true });
+});
+
+// Anonymous counters: verse shares, listens, app installs.
+const EVENT_TYPES = new Set(["share", "listen", "install"]);
+app.post("/api/event", async (req, res) => {
+  const type = String(req.body.type || "");
+  if (EVENT_TYPES.has(type)) await store.bumpStats({ [`${type}s`]: 1 }).catch(() => {});
+  res.json({ ok: true });
+});
+
+// Private stats for the owner (ADMIN_EMAILS).
+app.get("/api/stats", requireUser, async (req, res) => {
+  if (!isAdmin(req.user)) return res.status(403).json({ error: "Only the app owner can see stats." });
+  res.json(await store.getStats(14));
 });
 
 app.post("/api/checkout", requireUser, async (req, res) => {

@@ -48,6 +48,7 @@ export async function getOrCreateUser(uid, email) {
   if (!snap.exists) {
     const fresh = { email, premium: false, stripeCustomerId: null, createdAt: FieldValue.serverTimestamp() };
     await ref.set(fresh);
+    await bumpStats({ signups: 1 });
     return { id: uid, ...fresh };
   }
   return { id: uid, ...snap.data() };
@@ -79,8 +80,8 @@ export async function setPremiumByCustomer(stripeCustomerId, premium) {
 // ---- Journal: each user's past questions and answers (users/{uid}/entries) ----
 const entries = (uid) => users.doc(uid).collection("entries");
 
-export async function addEntry(uid, { question, answer, verseIds, lang }) {
-  const ref = await entries(uid).add({ question, answer, verseIds, lang, createdAt: FieldValue.serverTimestamp() });
+export async function addEntry(uid, { question, answer, verseIds, lang, provider }) {
+  const ref = await entries(uid).add({ question, answer, verseIds, lang, provider: provider ?? null, rating: null, createdAt: FieldValue.serverTimestamp() });
   return ref.id;
 }
 
@@ -93,3 +94,50 @@ export async function listEntries(uid, limit = 50) {
 }
 
 export const deleteEntry = (uid, id) => entries(uid).doc(id).delete();
+
+// ---- Feedback on answers ----
+/** Saves 👍/👎 on a journal entry; returns { previous, provider, lang } or null if not found. */
+export async function rateEntry(uid, entryId, rating) {
+  const ref = entries(uid).doc(entryId);
+  const snap = await ref.get();
+  if (!snap.exists) return null;
+  const { rating: previous = null, provider = null, lang = null } = snap.data();
+  await ref.update({ rating });
+  return { previous, provider, lang };
+}
+
+// ---- Daily statistics for the owner (stats/{YYYY-MM-DD}, simple counters) ----
+export function bumpStats(counts) {
+  const data = { day: today() };
+  for (const [k, n] of Object.entries(counts)) data[k] = FieldValue.increment(n);
+  return db.collection("stats").doc(today()).set(data, { merge: true });
+}
+
+export async function getStats(days = 14) {
+  const from = new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10);
+  const [statSnap, usageSnap, userCount] = await Promise.all([
+    db.collection("stats").where("day", ">=", from).get(),
+    usage.where("day", ">=", from).get(),
+    users.count().get(),
+  ]);
+  const byDay = Object.fromEntries(statSnap.docs.map((d) => [d.id, d.data()]));
+  // Active users per day, and users active on 2+ different days ("returning").
+  const activeByDay = {};
+  const daysPerUser = {};
+  for (const d of usageSnap.docs) {
+    const { uid, day } = d.data();
+    activeByDay[day] = (activeByDay[day] ?? 0) + 1;
+    (daysPerUser[uid] ??= new Set()).add(day);
+  }
+  const list = [];
+  for (let i = 0; i < days; i++) {
+    const day = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+    list.push({ day, activeUsers: activeByDay[day] ?? 0, ...(byDay[day] ?? {}) });
+  }
+  return {
+    totalUsers: userCount.data().count,
+    activeUsers: Object.keys(daysPerUser).length,
+    returningUsers: Object.values(daysPerUser).filter((s) => s.size >= 2).length,
+    days: list,
+  };
+}
