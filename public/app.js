@@ -106,6 +106,14 @@ async function onSignInChange(user) {
 function renderPlan() {
   if (!me) return;
   $("plan").innerHTML = "";
+  if (me.unlimited && !me.premium) {
+    $("plan").textContent = t("free_testing");
+    $("upgrade").classList.add("hidden");
+    $("manage").classList.add("hidden");
+    $("upsell").classList.add("hidden");
+    $("ask").classList.remove("hidden");
+    return;
+  }
   if (me.premium) {
     const b = document.createElement("span");
     b.className = "badge"; b.textContent = t("seeker");

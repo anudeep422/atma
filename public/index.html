@@ -41,7 +41,7 @@
       <div class="card">
         <h3 data-i18n="free">Free</h3>
         <div class="price">$0</div>
-        <ul><li data-i18n="f1"></li><li data-i18n="f2"></li></ul>
+        <ul><li data-i18n="f1"></li><li id="f2" data-i18n="f2"></li></ul>
         <a class="btn ghost" href="/app.html?signup=1" data-i18n="start_free">Start free</a>
       </div>
       <div class="card featured">
@@ -55,6 +55,9 @@
     <footer data-i18n-html="footer"></footer>
   </div>
   <script>
+    fetch("/api/config").then(r => r.json()).then(c => {
+      if (c.unlimited) { document.getElementById("f2").dataset.i18n = "f2_testing"; applyLang(); }
+    });
     fetch("/api/verse-of-the-day").then(r => r.json()).then(v => {
       const box = document.getElementById("votd");
       box.dataset.verse = JSON.stringify(v);

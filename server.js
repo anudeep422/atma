@@ -7,7 +7,10 @@ import { verseOfTheDay } from "./verses.js";
 
 const PORT = Number(process.env.PORT || 3000);
 const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
-const FREE_PER_DAY = Number(process.env.FREE_QUESTIONS_PER_DAY || 3);
+// Daily free questions. Not set (or 0) = no limit, used while testing.
+// To bring the limit back, set FREE_QUESTIONS_PER_DAY=3 on Render.
+const FREE_PER_DAY = Number(process.env.FREE_QUESTIONS_PER_DAY || 0);
+const UNLIMITED = !(FREE_PER_DAY > 0);
 const IS_PROD = process.env.NODE_ENV === "production";
 // Free "demo" upgrades are only allowed on your own computer, never on a live site.
 const ONLINE = IS_PROD || Boolean(process.env.RENDER);
@@ -61,6 +64,7 @@ async function requireUser(req, res, next) {
 }
 
 const publicUser = async (u) => {
+  if (UNLIMITED) return { email: u.email, premium: Boolean(u.premium), unlimited: true, remainingToday: null };
   const used = await store.questionsUsedToday(u.id);
   return {
     email: u.email,
@@ -71,7 +75,7 @@ const publicUser = async (u) => {
 };
 
 // ---- routes ----
-app.get("/api/config", (_req, res) => res.json({ firebase: firebaseWebConfig, emulator: store.firebaseEmulator }));
+app.get("/api/config", (_req, res) => res.json({ firebase: firebaseWebConfig, emulator: store.firebaseEmulator, unlimited: UNLIMITED }));
 
 app.get("/api/verse-of-the-day", (_req, res) => res.json(verseOfTheDay()));
 
@@ -81,7 +85,7 @@ app.post("/api/ask", requireUser, async (req, res) => {
   const question = String(req.body.question || "").trim().slice(0, 2000);
   if (!question) return res.status(400).json({ error: "Please write your question." });
 
-  if (!req.user.premium && await store.questionsUsedToday(req.user.id) >= FREE_PER_DAY) {
+  if (!UNLIMITED && !req.user.premium && await store.questionsUsedToday(req.user.id) >= FREE_PER_DAY) {
     return res.status(402).json({ error: "limit", message: `You've used your ${FREE_PER_DAY} free questions today.` });
   }
 
@@ -137,5 +141,6 @@ app.listen(PORT, () => {
   console.log(`Atma running at ${APP_URL}`);
   console.log(`  AI guide: ${AI_PROVIDER ?? "DEMO mode (set GEMINI_API_KEY for free AI answers)"}`);
   console.log(`  Payments: ${stripe ? "Stripe" : ONLINE ? "NOT SET UP (upgrade button shows 'coming soon')" : "DEMO mode (set STRIPE_SECRET_KEY)"}`);
+  console.log(`  Daily limit: ${UNLIMITED ? "none (free testing mode)" : FREE_PER_DAY + " free questions"}`);
   console.log(`  Accounts: ${store.firebaseEmulator ? "Firebase EMULATOR" : store.firebaseReady ? "Firebase" : "NOT CONFIGURED (set FIREBASE_SERVICE_ACCOUNT)"}`);
 });

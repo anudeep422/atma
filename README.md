@@ -3,7 +3,7 @@
 An AI spiritual guide. Users ask life questions and get gentle guidance grounded in
 real Upanishad verses, plus one small daily practice.
 
-- **Free:** verse of the day + 3 questions/day
+- **Free:** verse of the day + 3 questions/day (set `FREE_QUESTIONS_PER_DAY=3`; leave it unset for unlimited questions while testing)
 - **Seeker ($4.99/month):** unlimited questions (Stripe subscription)
 - **English + Telugu:** switch at the top of every page; Sanskrit verses shown in Telugu script, Telugu meanings, AI answers in Telugu.
 - **Accuracy:** the AI only *chooses* verses from a curated library (`verses.js`);
