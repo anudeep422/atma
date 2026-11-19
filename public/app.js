@@ -118,6 +118,7 @@ function renderPlan() {
   const outOfQuestions = !me.premium && me.remainingToday === 0;
   $("upsell").classList.toggle("hidden", !outOfQuestions);
   $("ask").classList.toggle("hidden", outOfQuestions);
+  if (outOfQuestions) $("suggestions").classList.add("hidden");
 }
 
 function renderNotice() {
