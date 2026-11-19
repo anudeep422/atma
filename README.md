@@ -51,6 +51,8 @@ add it on Render as `GEMINI_API_KEY`. No card needed.
 **Free backup (recommended with Gemini):** https://console.groq.com/keys → sign in → **Create API Key** →
 add it on Render as `GROQ_API_KEY`. When Gemini is busy, the app answers with Groq instead.
 Optional: `GROQ_MODEL` (default `openai/gpt-oss-120b,openai/gpt-oss-20b`, tried in order).
+Telugu questions try Gemini harder first (it writes better Telugu); `GROQ_MODEL_TE` can set a separate Groq model for Telugu.
+To see the technical reason under error messages, open the app with `?debug=1` (e.g. `/app.html?debug=1`).
 
 **Paid, best quality:** create a key at https://platform.claude.com and add it as `ANTHROPIC_API_KEY`
 (roughly 1–3 US cents per answer). If both keys are set, Claude is used.

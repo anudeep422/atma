@@ -188,7 +188,7 @@ $("ask").onsubmit = async (e) => {
   }
   if (!ok) {
     const el = addMessage("guide", errorText(data));
-    if (data.detail) {
+    if (data.detail && params.has("debug")) { // open the app with ?debug=1 to see the reason
       const d = document.createElement("p");
       d.className = "detail";
       d.textContent = `Reason: ${data.detail}`;

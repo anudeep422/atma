@@ -13,6 +13,8 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 const claude = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
 const gemini = !claude && process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 const GROQ_MODELS = (process.env.GROQ_MODEL || "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",").map((m) => m.trim());
+// Optional: different Groq model(s) for Telugu answers, e.g. GROQ_MODEL_TE=<model id>.
+const GROQ_MODELS_TE = process.env.GROQ_MODEL_TE ? process.env.GROQ_MODEL_TE.split(",").map((m) => m.trim()) : GROQ_MODELS;
 const groq = !claude && process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY, maxRetries: 1 }) : null;
 
 export const AI_PROVIDER = claude
@@ -81,19 +83,19 @@ export async function askGuide(question, history = [], lang = "en") {
   if (claude) raw = await askClaude(question, history, note);
   else if (gemini) {
     try {
-      raw = await askGemini(question, history, note);
+      raw = await askGemini(question, history, note, lang);
     } catch (err) {
       if (!groq) throw err;
       console.warn("Gemini unavailable, using Groq backup");
       try {
-        raw = await askGroq(question, history, note);
+        raw = await askGroq(question, history, note, lang);
       } catch (groqErr) {
         const both = groqErr instanceof GuideBusyError ? groqErr : err;
         both.detail = `${err.detail ?? describeAiError(err)} || Groq: ${groqErr.detail ?? describeAiError(groqErr)}`;
         throw both;
       }
     }
-  } else if (groq) raw = await askGroq(question, history, note);
+  } else if (groq) raw = await askGroq(question, history, note, lang);
   else return demoAnswer(question, lang);
 
   if (raw === null) return declined(lang);
@@ -184,14 +186,15 @@ async function geminiCall(model, contents) {
   }
 }
 
-async function askGemini(question, history, note) {
+async function askGemini(question, history, note, lang) {
   const contents = [
     ...history.slice(-6).map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
     { role: "user", parts: [{ text: question }, { text: note }] },
   ];
   // Plan: main model -> backup (lighter) model -> main model again after a short pause.
   // (With a Groq backup available, skip the slow third try and hand over to Groq sooner.)
-  const attempts = groq ? [GEMINI_MODEL, "backup"] : [GEMINI_MODEL, "backup", GEMINI_MODEL];
+  // Telugu always gets every Gemini attempt, because Gemini writes much better Telugu than Groq.
+  const attempts = groq && lang !== "te" ? [GEMINI_MODEL, "backup"] : [GEMINI_MODEL, "backup", GEMINI_MODEL];
   let lastErr;
   const tried = [];
   for (let i = 0; i < attempts.length; i++) {
@@ -221,15 +224,25 @@ const GROQ_JSON_RULES = `
 OUTPUT FORMAT: reply with ONLY a JSON object, no other text:
 {"answer": "<your answer>", "verse_ids": ["<id from the VERSE LIBRARY>"]}`;
 
-async function askGroq(question, history, note) {
+const GROQ_TELUGU_RULES = `
+
+TELUGU WRITING RULES (very important):
+- Write the "answer" in clear, natural, spoken Telugu, the way a kind elder speaks to family. Use Telugu script only.
+- Use SHORT, simple sentences (8–15 words each). Correct Telugu grammar matters more than length; 100–150 words is enough.
+- Do not mix in English words. Do not translate English idioms word for word.
+- Use common words that every Telugu reader knows: మనసు, ప్రశాంతత, ధైర్యం, ఆత్మ, సాధన, శ్వాస, ప్రేమ.
+- Address the reader respectfully with "మీరు".
+- Example of the right tone: "మీ మనసులోని బాధను నేను అర్థం చేసుకోగలను. ఈ రోజు ఐదు నిమిషాలు ప్రశాంతంగా కూర్చోండి. నెమ్మదిగా శ్వాస తీసుకోండి."`;
+
+async function askGroq(question, history, note, lang) {
   const messages = [
-    { role: "system", content: SYSTEM_PROMPT + GROQ_JSON_RULES },
+    { role: "system", content: SYSTEM_PROMPT + (lang === "te" ? GROQ_TELUGU_RULES : "") + GROQ_JSON_RULES },
     ...history.slice(-6),
     { role: "user", content: `${question}\n\n${note}` },
   ];
   const tried = [];
   let busy = true;
-  for (const model of GROQ_MODELS) {
+  for (const model of lang === "te" ? GROQ_MODELS_TE : GROQ_MODELS) {
     try {
       const started = Date.now();
       const completion = await groq.chat.completions.create({
