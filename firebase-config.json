@@ -1,6 +1,8 @@
 {
-  "apiKey": "PASTE_FROM_FIREBASE",
-  "authDomain": "PASTE_FROM_FIREBASE",
-  "projectId": "PASTE_FROM_FIREBASE",
-  "appId": "PASTE_FROM_FIREBASE"
+  "apiKey": "AIzaSyAJg6jR2fVFhHJlcNZAbXQTgHpRHy4GG1M",
+  "authDomain": "atma-ffabe.firebaseapp.com",
+  "projectId": "atma-ffabe",
+  "storageBucket": "atma-ffabe.firebasestorage.app",
+  "messagingSenderId": "688761878199",
+  "appId": "1:688761878199:web:f044602a2fdb7d7e167f32"
 }
