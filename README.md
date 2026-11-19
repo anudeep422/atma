@@ -5,8 +5,8 @@ real Upanishad verses, plus one small daily practice.
 
 - **Free:** verse of the day + 3 questions/day (set `FREE_QUESTIONS_PER_DAY=3`; leave it unset for unlimited questions while testing)
 - **Seeker ($4.99/month):** unlimited questions (Stripe subscription)
-- **🎯 Coach:** pick an area (relationships, emotions, discipline, career, wealth) and a goal → a 7-day plan with a verse,
-  a daily sankalpa, practices and one small action per day; one check-in per day with a reply from the coach.
+- **🎯 Coach:** a real conversation. The coach asks questions first, then shares one fitting verse and tailored options;
+  you agree one small step + sankalpa, and the next day it asks how it went.
 - **English + Telugu:** switch at the top of every page; Sanskrit verses shown in Telugu script, Telugu meanings, AI answers in Telugu.
 - **Accuracy:** the AI only *chooses* verses from a curated library (`verses.js`);
   the app displays the verse text itself, so scripture is never invented.
@@ -96,7 +96,7 @@ FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:808
 | `public/stats.html` | Private stats (users, questions, 👍/👎 per AI, shares). Set `ADMIN_EMAILS` to your email to open it |
 | `public/manifest.webmanifest`, `public/sw.js`, `public/pwa.js` | Lets people install Atma on their phone's home screen |
 | `topics.js` | **Topic map**: ~30 life situations with verses and practices chosen by people. Strong matches limit the AI to these verses; add keywords (EN/TE) or reorder verses here to improve answers. The Stats page counts topics, and `topic_none` shows questions not covered yet |
-| `coach.js` | The Coach: plan + check-in prompts (uses `verses.js` and `practices.js`) |
+| `coach.js` | The Coach conversation: instructions, follow-up and greeting messages (uses `topics.js`, `verses.js`, `practices.js`) |
 | `practices.js` | Practices library (traditional + "inspired by" Neville Goddard, Osho, Gurdjieff, J. Krishnamurti, José Silva), English + Telugu. Review before launch |
 | `translit.js` | Converts Sanskrit (Roman letters) to Telugu script |
 | `public/i18n.js` | All English/Telugu website text: edit wording here |
