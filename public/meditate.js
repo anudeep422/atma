@@ -66,7 +66,20 @@ function renderMeditate() {
 }
 
 // ---------------- Player ----------------
-const player = { m: null, minutes: 5, music: "tanpura", voice: true, timer: null, elapsed: 0, running: false, schedule: [], stepIdx: -1, phase: null };
+// A suitable default sound for each meditation (the user's own choice is remembered).
+const DEFAULT_SOUND = {
+  anapanasati: "bowls", "body-scan": "ocean", metta: "om", walking: "none", "om-chanting": "none", "so-ham": "tanpura",
+  "japa-meditation": "tanpura", trataka: "none", bhramari: "none", "nadi-shodhana": "bowls", "yoga-nidra": "ocean",
+  hridaya: "om", "who-am-i": "none", choiceless: "rain", "self-remembering-sit": "none", nadabrahma: "none",
+  witnessing: "rain", "inner-body": "bowls", countdown: "ocean", "feeling-it-done": "rain", hooponopono: "om",
+  "box-breathing": "bowls", "breath-478": "ocean",
+};
+const savedSound = (id) => { try { return localStorage.getItem(`medsound:${id}`); } catch { return null; } };
+const saveSound = (id, name) => { try { localStorage.setItem(`medsound:${id}`, name); } catch {} };
+const savedVoice = () => { try { return localStorage.getItem("medvoice") === "on"; } catch { return false; } };
+const saveVoice = (on) => { try { localStorage.setItem("medvoice", on ? "on" : "off"); } catch {} };
+
+const player = { m: null, minutes: 5, music: "none", voice: false, timer: null, elapsed: 0, running: false, schedule: [], stepIdx: -1, phase: null };
 
 function playerEl() {
   let el = document.getElementById("med-player");
@@ -84,7 +97,8 @@ function playerEl() {
       <div class="mp-chips mp-lengths"></div>
       <div class="mp-label mp-l-music"></div>
       <div class="mp-chips mp-music"></div>
-      <label class="mp-voice"><input type="checkbox" checked> <span></span></label>
+      <label class="mp-voice"><input type="checkbox"> <span></span></label>
+      <p class="mp-voice-note"></p>
       <button class="btn mp-go" type="button" style="width:100%"></button>
     </div>
     <div class="med-run hidden">
@@ -121,6 +135,9 @@ function openPlayer(m, minutes) {
   const el = playerEl();
   player.m = m;
   player.minutes = minutes ?? m.minutes;
+  player.music = savedSound(m.id) || DEFAULT_SOUND[m.id] || "bowls";
+  el.querySelector(".mp-voice input").checked = savedVoice();
+  el.querySelector(".mp-voice-note").textContent = t("med_voice_note");
   el.querySelector(".mp-title").textContent = medName(m);
   el.querySelector(".mp-src").textContent = medSource(m);
   const caution = LANG === "te" ? m.caution_te : m.caution;
@@ -150,6 +167,7 @@ function openPlayer(m, minutes) {
     b.classList.toggle("chosen", name === player.music);
     b.onclick = () => {
       player.music = name;
+      saveSound(m.id, name);
       mus.querySelectorAll("button").forEach((x) => x.classList.toggle("chosen", x === b));
       AtmaSound.play(name); // preview
       setTimeout(() => { if (!player.running) AtmaSound.stop(); }, 4000);
@@ -192,14 +210,18 @@ function speak(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = lang === "te" ? "te-IN" : "en-IN";
   if (voice) u.voice = voice;
-  u.rate = 0.8;
+  u.rate = 0.78;
+  u.pitch = 0.95;
   u.volume = 0.9;
+  u.onstart = () => AtmaSound.duck(true);
+  u.onend = u.onerror = () => AtmaSound.duck(false);
   speechSynthesis.speak(u);
 }
 
 function startSession() {
   const el = playerEl();
   player.voice = el.querySelector(".mp-voice input").checked;
+  saveVoice(player.voice);
   player.schedule = buildSchedule(player.m, player.minutes * 60);
   player.elapsed = 0;
   player.stepIdx = -1;
@@ -212,7 +234,7 @@ function startSession() {
   el.querySelector(".breath-label").textContent = "";
   show("med-run");
   AtmaSound.play(player.music);
-  AtmaSound.bell(0.35);
+  AtmaSound.bell(0.22);
   let last = performance.now();
   clearInterval(player.timer);
   player.timer = setInterval(() => {
@@ -234,7 +256,7 @@ function tick() {
   let idx = 0;
   player.schedule.forEach((s, i) => { if (player.elapsed >= s.start) idx = i; });
   if (idx !== player.stepIdx) {
-    if (player.stepIdx >= 0) AtmaSound.bell(0.15);
+    if (player.stepIdx >= 0) AtmaSound.bell(0.1);
     player.stepIdx = idx;
     const text = LANG === "te" ? player.schedule[idx].step.te : player.schedule[idx].step.en;
     const cue = el.querySelector(".mp-cue");
@@ -286,8 +308,8 @@ async function finishSession(early) {
   const minutes = Math.round(player.elapsed / 60);
   const counts = !early || player.elapsed >= Math.min(60, player.minutes * 30);
   if (early && !counts) return closePlayer();
-  AtmaSound.bell(0.35);
-  setTimeout(() => AtmaSound.bell(0.25), 1800);
+  AtmaSound.bell(0.22);
+  setTimeout(() => AtmaSound.bell(0.16), 2500);
   const el = playerEl();
   el.querySelector(".mp-done-title").textContent = t("med_done_title");
   el.querySelector(".mp-done-sub").textContent = t("med_done_sub");
