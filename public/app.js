@@ -55,7 +55,7 @@ function showAuth() {
   $("auth").classList.remove("hidden");
   $("main").classList.add("hidden");
   $("logout").classList.add("hidden");
-  ["tabs", "coach", "journal"].forEach((id) => $(id).classList.add("hidden"));
+  ["tabs", "today", "coach", "journal"].forEach((id) => $(id).classList.add("hidden"));
   renderAuthText();
 }
 
@@ -303,15 +303,99 @@ async function openJournal() {
 }
 
 // ---------- tabs ----------
-let currentTab = "main";
+let currentTab = "today";
 function showTab(name) {
   currentTab = name;
-  for (const id of ["main", "coach", "journal"]) $(id).classList.toggle("hidden", id !== name);
+  for (const id of ["today", "main", "coach", "journal"]) $(id).classList.toggle("hidden", id !== name);
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
   if (name === "journal") openJournal();
   if (name === "coach") loadCoach();
+  if (name === "today") loadToday();
 }
 document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
+
+// ---------- today ----------
+let todayData = null;
+
+async function loadToday() {
+  const { ok, data } = await api("/api/today");
+  if (!ok) return;
+  todayData = data;
+  renderToday();
+}
+
+function greetingText() {
+  const h = new Date().getHours();
+  const key = h < 12 ? "good_morning" : h < 17 ? "good_afternoon" : "good_evening";
+  const name = AtmaAuth.name();
+  return name ? `${t(key)}, ${name} 🙏` : `${t(key)} 🙏`;
+}
+
+function todayAffirmation() {
+  const d = todayData;
+  const library = LANG === "te" ? d.affirmation.te : d.affirmation.en;
+  return { main: d.personalAffirmation || library, more: d.personalAffirmation ? library : null };
+}
+
+function renderToday() {
+  const d = todayData;
+  if (!d) return;
+  $("today-greeting").textContent = greetingText();
+  $("streak").classList.toggle("hidden", !d.streak);
+  $("streak").textContent = d.streak === 1 ? t("streak_one") : t("streak", { n: d.streak });
+
+  const aff = todayAffirmation();
+  $("aff-text").textContent = aff.main;
+  $("aff-more").classList.toggle("hidden", !aff.more);
+  if (aff.more) $("aff-more").textContent = `${t("also_today")} ${aff.more}`;
+  $("aff-done").classList.toggle("hidden", d.day.affirmed);
+  $("aff-said").classList.toggle("hidden", !d.day.affirmed);
+
+  const wb = $("wisdom-box");
+  wb.innerHTML = "";
+  wb.appendChild(d.wisdom.type === "verse" ? verseEl(d.wisdom.verse) : teachingEl(d.wisdom.teaching));
+
+  $("step-text").textContent = d.step ? d.step.action : t("no_step");
+  $("step-done").classList.toggle("hidden", !d.step || d.day.stepDone);
+  $("step-said").classList.toggle("hidden", !(d.step && d.day.stepDone));
+  $("step-find").classList.toggle("hidden", Boolean(d.step));
+
+  const pb = $("practice-box");
+  pb.innerHTML = "";
+  pb.appendChild(practiceEl(d.practice));
+
+  const done = d.day.gratitude?.length;
+  $("grat-form").classList.toggle("hidden", Boolean(done));
+  $("grat-list").classList.toggle("hidden", !done);
+  $("grat-list").innerHTML = "";
+  (d.day.gratitude ?? []).forEach((g) => {
+    const li = document.createElement("li");
+    li.textContent = `🙏 ${g}`;
+    $("grat-list").appendChild(li);
+  });
+}
+
+async function todayAction(body) {
+  const { ok, data } = await api("/api/today", body);
+  if (!ok) return alert(errorText(data));
+  todayData = { ...todayData, ...data };
+  renderToday();
+}
+
+$("aff-done").onclick = () => todayAction({ action: "affirm" });
+$("step-done").onclick = () => todayAction({ action: "step" });
+$("step-find").onclick = () => showTab("coach");
+$("aff-listen").onclick = () => speakText(todayAffirmation().main, $("aff-listen"), 3);
+$("aff-share").onclick = () => {
+  const text = todayAffirmation().main;
+  const label = t("todays_affirmation");
+  shareVerse({ ref: label, ref_te: label, sanskrit: "", sanskrit_te: "", english: text, english_te: text }, $("aff-share"));
+};
+$("grat-form").onsubmit = (e) => {
+  e.preventDefault();
+  todayAction({ action: "gratitude", items: ["grat-1", "grat-2", "grat-3"].map((id) => $(id).value) });
+};
+onLangChange.push(() => { if (currentTab === "today") renderToday(); });
 
 // ---------- coach (conversation) ----------
 let coachChat = null;

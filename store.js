@@ -163,3 +163,25 @@ export async function endChat(uid) {
   await users.doc(uid).collection("coachHistory").add({ ...snap.data(), endedAt: FieldValue.serverTimestamp() });
   await chatDoc(uid).delete();
 }
+
+// ---- Today: one record per user per day (users/{uid}/days/{YYYY-MM-DD}) ----
+const dayDoc = (uid, date) => users.doc(uid).collection("days").doc(date);
+
+export async function getDay(uid, date) {
+  const snap = await dayDoc(uid, date).get();
+  return snap.exists ? snap.data() : { date, affirmed: false, stepDone: false, gratitude: [] };
+}
+
+export const updateDay = (uid, date, data) => dayDoc(uid, date).set({ date, ...data }, { merge: true });
+
+/** Days in a row with any practice (affirmation said, step done or gratitude written). */
+export async function getStreak(uid) {
+  const from = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10);
+  const snap = await users.doc(uid).collection("days").where("date", ">=", from).get();
+  const active = new Set(snap.docs.map((d) => d.data()).filter((d) => d.affirmed || d.stepDone || d.gratitude?.length).map((d) => d.date));
+  let streak = 0;
+  const day = new Date();
+  if (!active.has(day.toISOString().slice(0, 10))) day.setUTCDate(day.getUTCDate() - 1); // today not done yet: count up to yesterday
+  while (active.has(day.toISOString().slice(0, 10))) { streak++; day.setUTCDate(day.getUTCDate() - 1); }
+  return streak;
+}

@@ -46,10 +46,57 @@
 
     <!-- Tabs (shown when signed in) -->
     <div id="tabs" class="tabs hidden">
-      <button data-tab="main" class="active" data-i18n="tab_ask">💬 Ask</button>
+      <button data-tab="today" class="active" data-i18n="tab_today">🌅 Today</button>
+      <button data-tab="main" data-i18n="tab_ask">💬 Ask</button>
       <button data-tab="coach" data-i18n="tab_coach">🎯 Coach</button>
       <button data-tab="journal" data-i18n="tab_journal">📔 Journal</button>
     </div>
+
+    <!-- Today: daily affirmation, wisdom, step, practice, gratitude -->
+    <section id="today" class="hidden">
+      <div class="today-top">
+        <h2 id="today-greeting" class="greet"></h2>
+        <span id="streak" class="streak hidden"></span>
+      </div>
+
+      <div class="card affirm-card">
+        <div class="lbl" data-i18n="todays_affirmation">Today's affirmation</div>
+        <p id="aff-text" class="aff-text"></p>
+        <div class="aff-hint" data-i18n="aff_hint"></div>
+        <div class="verse-actions">
+          <button id="aff-listen" type="button" data-i18n="listen">🔊 Listen</button>
+          <button id="aff-share" type="button" data-i18n="share">📤 Share</button>
+        </div>
+        <button id="aff-done" class="btn" type="button" style="width:100%;margin-top:12px" data-i18n="aff_done">✅ I said it</button>
+        <p id="aff-said" class="done-note hidden" data-i18n="aff_said"></p>
+        <p id="aff-more" class="aff-more hidden"></p>
+      </div>
+
+      <div class="section-lbl" data-i18n="wisdom_today">Wisdom for today</div>
+      <div id="wisdom-box"></div>
+
+      <div class="card today-step">
+        <div class="lbl" data-i18n="todays_step">Today's step</div>
+        <p id="step-text"></p>
+        <button id="step-done" class="btn hidden" type="button" style="width:100%" data-i18n="step_done">✅ Done</button>
+        <p id="step-said" class="done-note hidden" data-i18n="step_said"></p>
+        <button id="step-find" class="btn ghost hidden" type="button" style="width:100%" data-i18n="find_step">Talk to the guide to choose a step</button>
+      </div>
+
+      <div class="section-lbl" data-i18n="practice_today">Short practice</div>
+      <div id="practice-box"></div>
+
+      <div class="card gratitude">
+        <div class="lbl" data-i18n="gratitude_title">Evening gratitude</div>
+        <form id="grat-form">
+          <input id="grat-1" maxlength="200" data-i18n-ph="grat_ph1">
+          <input id="grat-2" maxlength="200" data-i18n-ph="grat_ph2">
+          <input id="grat-3" maxlength="200" data-i18n-ph="grat_ph3">
+          <button class="btn ghost" style="width:100%" data-i18n="grat_save">Save</button>
+        </form>
+        <ul id="grat-list" class="hidden"></ul>
+      </div>
+    </section>
 
     <!-- Coach: an interactive conversation -->
     <section id="coach" class="hidden">

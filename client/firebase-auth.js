@@ -21,4 +21,5 @@ window.AtmaAuth = {
   resetPassword: (email) => sendPasswordResetEmail(auth, email),
   logOut: () => signOut(auth),
   token: () => auth.currentUser?.getIdToken() ?? null,
+  name: () => auth.currentUser?.displayName?.split(" ")[0] || "",
 };

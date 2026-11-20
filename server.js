@@ -5,7 +5,9 @@ import * as store from "./store.js";
 import { askGuide, GuideBusyError, AI_PROVIDER, describeAiError } from "./guide.js";
 import { verseOfTheDay, VERSE_BY_ID } from "./verses.js";
 import * as coach from "./coach.js";
-import { TEACHING_BY_ID } from "./teachings.js";
+import { TEACHINGS, TEACHING_BY_ID } from "./teachings.js";
+import { affirmationFor, TOPIC_TO_AREA, dayNumber } from "./affirmations.js";
+import { PRACTICES } from "./practices.js";
 
 const PORT = Number(process.env.PORT || 3000);
 const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
@@ -137,6 +139,54 @@ app.get("/api/journal", requireUser, async (req, res) => {
 app.delete("/api/journal/:id", requireUser, async (req, res) => {
   await store.deleteEntry(req.user.id, String(req.params.id));
   res.json({ ok: true });
+});
+
+// ---- Today: daily affirmation, wisdom, step, practice, gratitude, streak ----
+const SHORT_PRACTICES = PRACTICES.filter((p) => p.minutes <= 5);
+
+app.get("/api/today", requireUser, async (req, res) => {
+  const uid = req.user.id;
+  const date = new Date().toISOString().slice(0, 10);
+  const [chat, day, streak] = await Promise.all([store.getChat(uid), store.getDay(uid, date), store.getStreak(uid)]);
+  const area = TOPIC_TO_AREA[chat?.topics?.[0]] ?? "general";
+  const n = dayNumber();
+  const wisdom = n % 2 === 0
+    ? { type: "verse", verse: verseOfTheDay() }
+    : { type: "teaching", teaching: TEACHINGS[n % TEACHINGS.length] };
+  store.bumpStats({ today_opens: 1 }).catch(() => {});
+  res.json({
+    date,
+    personalAffirmation: chat?.commitment?.sankalpa ?? null, // written with the Guide for this user
+    affirmation: affirmationFor(area),
+    wisdom,
+    step: chat?.commitment ? { action: chat.commitment.action } : null,
+    practice: SHORT_PRACTICES[n % SHORT_PRACTICES.length],
+    day,
+    streak,
+  });
+});
+
+app.post("/api/today", requireUser, async (req, res) => {
+  const uid = req.user.id;
+  const date = new Date().toISOString().slice(0, 10);
+  const action = String(req.body.action || "");
+  if (action === "affirm") {
+    await store.updateDay(uid, date, { affirmed: true });
+    store.bumpStats({ affirmed: 1 }).catch(() => {});
+  } else if (action === "step") {
+    await store.updateDay(uid, date, { stepDone: true });
+    store.bumpStats({ steps_done: 1 }).catch(() => {});
+  } else if (action === "gratitude") {
+    const items = (Array.isArray(req.body.items) ? req.body.items : [])
+      .map((x) => String(x).trim().slice(0, 200)).filter(Boolean).slice(0, 3);
+    if (!items.length) return res.status(400).json({ error: "Please write at least one thing." });
+    await store.updateDay(uid, date, { gratitude: items });
+    store.bumpStats({ gratitude: 1 }).catch(() => {});
+  } else {
+    return res.status(400).json({ error: "Unknown action" });
+  }
+  const [day, streak] = await Promise.all([store.getDay(uid, date), store.getStreak(uid)]);
+  res.json({ day, streak });
 });
 
 // ---- Coach: an interactive conversation ----

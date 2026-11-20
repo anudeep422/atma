@@ -144,3 +144,23 @@ table.stats th:first-child, table.stats td:first-child { text-align: left; }
 .teaching-head { font-weight: 600; }
 .teaching p { margin: 6px 0 4px; }
 .teaching-note { font-size: 11px; color: var(--muted); }
+
+/* today */
+.today-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 4px 0 12px; }
+.greet { font: 600 26px/1.25 var(--serif); margin: 0; text-align: left; }
+.streak { background: var(--verse-bg); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-weight: 600; white-space: nowrap; }
+.affirm-card { background: linear-gradient(160deg, var(--verse-bg), var(--card)); border-color: var(--saffron); text-align: center; }
+.aff-text { font: 600 26px/1.4 var(--serif); margin: 12px 0 8px; }
+:lang(te) .aff-text { font-size: 22px; line-height: 1.6; }
+.aff-hint { font-size: 13px; color: var(--muted); }
+.affirm-card .verse-actions { justify-content: center; }
+.aff-more { font-size: 14px; color: var(--muted); margin: 12px 0 0; }
+.done-note { color: var(--saffron-dark); font-weight: 600; margin: 12px 0 0; }
+.section-lbl { font: 600 12px var(--sans); text-transform: uppercase; letter-spacing: .04em; color: var(--saffron-dark); margin: 20px 0 6px; }
+.today-step { margin-top: 16px; }
+.gratitude { margin-top: 16px; }
+.gratitude input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: 15px var(--sans); margin-bottom: 8px; }
+.gratitude ul { list-style: none; padding: 0; margin: 8px 0 0; }
+.gratitude li { padding: 6px 0; }
+#today .practice { background: var(--card); }
+.tabs button { font-size: 13px; padding: 9px 4px; }

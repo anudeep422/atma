@@ -150,27 +150,36 @@ function pickVoice(lang) {
 }
 
 function speakVerse(v, button) {
+  const te = LANG === "te";
+  // Telugu: the Sanskrit (in Telugu script) then the meaning. English: reference and meaning.
+  speakParts(te ? [v.sanskrit_te.replace(/[।॥|]/g, ". "), v.english_te] : [v.ref, v.english], button);
+}
+
+/** Reads any text aloud (e.g. an affirmation), optionally repeated. Language follows the text. */
+function speakText(text, button, times = 1) {
+  speakParts(Array(times).fill(text), button, /[\u0C00-\u0C7F]/.test(text) ? "te" : "en");
+}
+
+function speakParts(parts, button, lang = LANG) {
   if (!("speechSynthesis" in window)) return alert(t("no_voice"));
   if (speakingButton) { // second tap stops
     speechSynthesis.cancel();
     const was = speakingButton;
-    speakingButton.textContent = t("listen");
+    speakingButton.textContent = speakingButton.dataset.label;
     speakingButton = null;
     if (was === button) return;
   }
-  const te = LANG === "te";
+  const te = lang === "te";
   const voice = pickVoice(te ? "te" : "en");
   if (te && !voice) return alert(t("no_te_voice"));
-
-  // Telugu: the Sanskrit (in Telugu script) then the meaning. English: reference and meaning.
-  const parts = te ? [v.sanskrit_te.replace(/[।॥|]/g, ". "), v.english_te] : [v.ref, v.english];
-  parts.forEach((text, i) => {
+  button.dataset.label = button.textContent;
+  parts.filter(Boolean).forEach((text, i, arr) => {
     const u = new SpeechSynthesisUtterance(text);
     u.lang = te ? "te-IN" : "en-IN";
     if (voice) u.voice = voice;
     u.rate = 0.85;
-    if (i === parts.length - 1) u.onend = u.onerror = () => {
-      if (speakingButton === button) { button.textContent = t("listen"); speakingButton = null; }
+    if (i === arr.length - 1) u.onend = u.onerror = () => {
+      if (speakingButton === button) { button.textContent = button.dataset.label; speakingButton = null; }
     };
     speechSynthesis.speak(u);
   });
