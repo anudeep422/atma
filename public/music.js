@@ -8,7 +8,8 @@ const AtmaSound = (() => {
 
   function ensure() {
     if (!ctx) {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const AC = window.AudioContext || window.webkitAudioContext;
+      try { ctx = new AC({ latencyHint: "playback" }); } catch { ctx = new AC(); } // larger buffers = fewer dropouts
       master = ctx.createGain();
       master.gain.value = 0.8;
       // Soft "temple hall" reverb makes every sound smoother and warmer.
@@ -17,7 +18,7 @@ const AtmaSound = (() => {
       const wet = ctx.createGain();
       wet.gain.value = 0.45;
       const verb = ctx.createConvolver();
-      verb.buffer = hallImpulse(4.5);
+      verb.buffer = hallImpulse(2.5);
       master.connect(dry).connect(ctx.destination);
       master.connect(verb).connect(wet).connect(ctx.destination);
     }
@@ -210,29 +211,45 @@ const AtmaSound = (() => {
   };
 
   // ---- Real audio files (music tracks and recorded guidance) ----
+  // Played by the browser directly (not through Web Audio effects): smoother on phones.
   const elements = new Set();
+  const loaded = new Map(); // url -> Audio, kept so a preloaded file isn't downloaded twice
+  const MUSIC_VOLUME = 0.7;
+  let musicEl = null;
+  let ducked = false;
 
-  function fileNode(url, loop) {
-    const audio = new Audio(url);
-    audio.loop = loop;
-    audio.preload = "auto";
-    const src = ctx.createMediaElementSource(audio);
-    elements.add(audio);
-    return { audio, src };
+  function audioFor(url, loop) {
+    let a = loaded.get(url);
+    if (!a) { a = new Audio(url); a.preload = "auto"; loaded.set(url, a); }
+    a.loop = loop;
+    return a;
   }
 
-  // A music file, looped, with slow fades, through the same reverb/ducking path as generated sounds.
+  // Smooth volume change for an <audio> element.
+  function fadeEl(a, to, secs, then) {
+    clearInterval(a._fade);
+    const from = a.volume;
+    const steps = Math.max(1, Math.round(secs * 20));
+    let i = 0;
+    a._fade = setInterval(() => {
+      i++;
+      a.volume = Math.min(1, Math.max(0, from + ((to - from) * i) / steps));
+      if (i >= steps) { clearInterval(a._fade); then?.(); }
+    }, 50);
+  }
+
   function musicFile(url) {
-    const out = ctx.createGain();
-    fadeIn(out, 0.9, 5);
-    out.connect(master);
-    const { audio, src } = fileNode(url, true);
-    src.connect(out);
-    audio.play().catch(() => {});
+    const a = audioFor(url, true);
+    a.currentTime = 0;
+    a.volume = 0;
+    elements.add(a);
+    musicEl = a;
+    a.play().catch(() => {});
+    fadeEl(a, ducked ? MUSIC_VOLUME * 0.3 : MUSIC_VOLUME, 5);
     return {
       stop() {
-        fadeOutAndStop(out, [src], 3.5);
-        setTimeout(() => { audio.pause(); elements.delete(audio); }, 3600);
+        if (musicEl === a) musicEl = null;
+        fadeEl(a, 0, 3, () => { a.pause(); elements.delete(a); });
       },
     };
   }
@@ -248,20 +265,33 @@ const AtmaSound = (() => {
       if (name?.startsWith("file:")) current = musicFile(name.slice(5));
       else if (scapes[name]) current = scapes[name]();
     },
-    /** Plays a recorded guided meditation (not looped, no reverb); music is lowered underneath. */
+    /** Downloads a file fully before the session starts (resolves when it can play through, or after 20 s). */
+    preload(url) {
+      const a = audioFor(url, false);
+      if (a.readyState >= 4) return Promise.resolve();
+      return new Promise((resolve) => {
+        const done = () => { clearTimeout(timer); resolve(); };
+        const timer = setTimeout(done, 20000);
+        a.addEventListener("canplaythrough", done, { once: true });
+        a.addEventListener("error", done, { once: true });
+        a.load();
+      });
+    },
+    /** Plays a recorded guided meditation; music is lowered underneath. */
     playVoice(url, { onEnded, onDuration } = {}) {
       ensure();
       this.stopVoice();
-      const { audio, src } = fileNode(url, false);
-      const g = ctx.createGain();
-      g.gain.value = 1;
-      src.connect(g).connect(ctx.destination);
-      audio.addEventListener("loadedmetadata", () => onDuration?.(audio.duration));
-      audio.addEventListener("ended", () => { this.duck(false); onEnded?.(); });
-      audio.play().catch(() => {});
+      const a = audioFor(url, false);
+      a.currentTime = 0;
+      a.volume = 1;
+      elements.add(a);
+      a.onloadedmetadata = () => onDuration?.(a.duration);
+      if (a.readyState >= 1) onDuration?.(a.duration);
+      a.onended = () => { this.duck(false); onEnded?.(); };
+      a.play().catch(() => {});
       this.duck(true);
-      voice = audio;
-      return audio;
+      voice = a;
+      return a;
     },
     stopVoice() {
       if (voice) { voice.pause(); elements.delete(voice); voice = null; this.duck(false); }
@@ -273,6 +303,8 @@ const AtmaSound = (() => {
     bell(level = 0.2) { bowl(392.0, level, 0, 8); },
     /** Lowers the music while the voice speaks, then brings it back smoothly. */
     duck(on) {
+      ducked = on;
+      if (musicEl) fadeEl(musicEl, on ? MUSIC_VOLUME * 0.3 : MUSIC_VOLUME, on ? 0.6 : 2.5);
       if (!ctx) return;
       const t = ctx.currentTime;
       master.gain.cancelScheduledValues(t);

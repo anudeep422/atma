@@ -245,8 +245,21 @@ function speak(text) {
   speechSynthesis.speak(u);
 }
 
-function startSession() {
+async function startSession() {
   const el = playerEl();
+  // Make sure real audio files are fully downloaded first, so playback never stops halfway.
+  const files = [];
+  if (player.music?.startsWith("file:")) files.push(player.music.slice(5));
+  const recFile = recordingFor(player.m);
+  if (recFile && el.querySelector(".mp-rec input").checked) files.push(`/audio/${recFile.file}`);
+  if (files.length) {
+    const go = el.querySelector(".mp-go");
+    go.disabled = true;
+    go.textContent = t("med_loading");
+    await Promise.all(files.map((f) => AtmaSound.preload(f)));
+    go.disabled = false;
+    go.textContent = t("med_begin");
+  }
   player.voice = el.querySelector(".mp-voice input").checked;
   saveVoice(player.voice);
   const rec = recordingFor(player.m);
