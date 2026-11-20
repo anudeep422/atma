@@ -11,16 +11,24 @@ const AtmaSound = (() => {
       const AC = window.AudioContext || window.webkitAudioContext;
       try { ctx = new AC({ latencyHint: "playback" }); } catch { ctx = new AC(); } // larger buffers = fewer dropouts
       master = ctx.createGain();
-      master.gain.value = 0.8;
+      master.gain.value = 0.6;
+      // Limiter: the mix can never go over full volume (overload causes crackling).
+      const limiter = ctx.createDynamicsCompressor();
+      limiter.threshold.value = -10;
+      limiter.knee.value = 6;
+      limiter.ratio.value = 12;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.25;
+      limiter.connect(ctx.destination);
       // Soft "temple hall" reverb makes every sound smoother and warmer.
       const dry = ctx.createGain();
-      dry.gain.value = 0.75;
+      dry.gain.value = 0.7;
       const wet = ctx.createGain();
-      wet.gain.value = 0.45;
+      wet.gain.value = 0.3;
       const verb = ctx.createConvolver();
       verb.buffer = hallImpulse(2.5);
-      master.connect(dry).connect(ctx.destination);
-      master.connect(verb).connect(wet).connect(ctx.destination);
+      master.connect(dry).connect(limiter);
+      master.connect(verb).connect(wet).connect(limiter);
     }
     if (ctx.state === "suspended") ctx.resume();
     return ctx;
@@ -32,7 +40,11 @@ const AtmaSound = (() => {
     const buf = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let ch = 0; ch < 2; ch++) {
       const d = buf.getChannelData(ch);
-      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+      let lp = 0;
+      for (let i = 0; i < len; i++) {
+        lp += 0.2 * ((Math.random() * 2 - 1) - lp); // low-pass the noise: a warm tail instead of hiss
+        d[i] = lp * 2 * Math.pow(1 - i / len, 3);
+      }
     }
     return buf;
   }
@@ -110,7 +122,7 @@ const AtmaSound = (() => {
         const f = strings[i++ % 4];
         const t0 = ctx.currentTime;
         [[1, 0.07], [2, 0.035], [3, 0.02], [4, 0.01]].forEach(([h, amp]) => {
-          [0, 0.4].forEach((detune) => { // two slightly detuned voices: the gentle tanpura shimmer
+          [0].forEach((detune) => { // single steady voice (detuned pairs caused a wavering sound)
             const o = ctx.createOscillator();
             const g = ctx.createGain();
             o.type = "sine";
@@ -257,7 +269,7 @@ const AtmaSound = (() => {
   let voice = null;
 
   return {
-    names: ["tanpura", "om", "bowls", "rain", "ocean", "none"],
+    names: ["tanpura", "om", "bowls", "none"],
     /** Starts a soundscape: a generated one, "none", or "file:<url>" for a real music track. */
     play(name) {
       ensure();
@@ -309,7 +321,7 @@ const AtmaSound = (() => {
       const t = ctx.currentTime;
       master.gain.cancelScheduledValues(t);
       master.gain.setValueAtTime(master.gain.value, t);
-      master.gain.linearRampToValueAtTime(on ? 0.3 : 0.8, t + (on ? 0.6 : 2.5));
+      master.gain.linearRampToValueAtTime(on ? 0.25 : 0.6, t + (on ? 0.6 : 2.5));
     },
     pause() { ctx?.suspend(); elements.forEach((a) => a.pause()); },
     resume() { ctx?.resume(); elements.forEach((a) => { if (a.currentTime > 0 && !a.ended) a.play().catch(() => {}); }); },

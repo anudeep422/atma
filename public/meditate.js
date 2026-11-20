@@ -80,11 +80,11 @@ function renderMeditate() {
 // ---------------- Player ----------------
 // A suitable default sound for each meditation (the user's own choice is remembered).
 const DEFAULT_SOUND = {
-  anapanasati: "bowls", "body-scan": "ocean", metta: "om", walking: "none", "om-chanting": "none", "so-ham": "tanpura",
-  "japa-meditation": "tanpura", trataka: "none", bhramari: "none", "nadi-shodhana": "bowls", "yoga-nidra": "ocean",
-  hridaya: "om", "who-am-i": "none", choiceless: "rain", "self-remembering-sit": "none", nadabrahma: "none",
-  witnessing: "rain", "inner-body": "bowls", countdown: "ocean", "feeling-it-done": "rain", hooponopono: "om",
-  "box-breathing": "bowls", "breath-478": "ocean",
+  anapanasati: "bowls", "body-scan": "bowls", metta: "om", walking: "none", "om-chanting": "none", "so-ham": "tanpura",
+  "japa-meditation": "tanpura", trataka: "none", bhramari: "none", "nadi-shodhana": "bowls", "yoga-nidra": "om",
+  hridaya: "om", "who-am-i": "none", choiceless: "none", "self-remembering-sit": "none", nadabrahma: "none",
+  witnessing: "none", "inner-body": "bowls", countdown: "bowls", "feeling-it-done": "om", hooponopono: "om",
+  "box-breathing": "bowls", "breath-478": "om",
 };
 // Meditations that should start with a real music track (by track id in manifest.json), when it exists.
 const TRACK_DEFAULT = { "yoga-nidra": "sleep", "breath-478": "sleep", "body-scan": "sleep", "feeling-it-done": "sleep" };
@@ -155,7 +155,9 @@ function openPlayer(m, minutes) {
   const el = playerEl();
   player.m = m;
   player.minutes = minutes ?? m.minutes;
-  player.music = savedSound(m.id) || defaultSound(m);
+  const saved = savedSound(m.id);
+  const valid = saved && (saved.startsWith("file:") ? (AUDIO?.music ?? []).some((tr) => saved === `file:/audio/${tr.file}`) : AtmaSound.names.includes(saved));
+  player.music = valid ? saved : defaultSound(m);
   el.querySelector(".mp-voice input").checked = savedVoice();
   el.querySelector(".mp-voice-note").textContent = t("med_voice_note");
   el.querySelector(".mp-title").textContent = medName(m);
