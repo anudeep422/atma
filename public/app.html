@@ -48,6 +48,7 @@
     <div id="tabs" class="tabs hidden">
       <button data-tab="today" class="active" data-i18n="tab_today">🌅 Today</button>
       <button data-tab="main" data-i18n="tab_ask">💬 Ask</button>
+      <button data-tab="meditate" data-i18n="tab_meditate">🧘 Meditate</button>
       <button data-tab="coach" data-i18n="tab_coach">🎯 Coach</button>
       <button data-tab="journal" data-i18n="tab_journal">📔 Journal</button>
     </div>
@@ -83,7 +84,7 @@
         <button id="step-find" class="btn ghost hidden" type="button" style="width:100%" data-i18n="find_step">Talk to the guide to choose a step</button>
       </div>
 
-      <div class="section-lbl" data-i18n="practice_today">Short practice</div>
+      <div class="section-lbl" data-i18n="practice_today">🧘 Today's meditation</div>
       <div id="practice-box"></div>
 
       <div class="card gratitude">
@@ -96,6 +97,14 @@
         </form>
         <ul id="grat-list" class="hidden"></ul>
       </div>
+    </section>
+
+    <!-- Meditate: guided meditations library -->
+    <section id="meditate" class="hidden">
+      <h2 style="margin:4px 0;text-align:left" data-i18n="med_title">Guided meditations</h2>
+      <p style="color:var(--muted);margin-top:0" data-i18n="med_intro"></p>
+      <div id="med-filters" class="mp-chips"></div>
+      <div id="med-list"></div>
     </section>
 
     <!-- Coach: an interactive conversation -->
@@ -157,5 +166,7 @@
   </div>
   <script src="/firebase-auth.js"></script>
   <script src="/app.js"></script>
+  <script src="/music.js"></script>
+  <script src="/meditate.js"></script>
 </body>
 </html>

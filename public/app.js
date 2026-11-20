@@ -55,7 +55,7 @@ function showAuth() {
   $("auth").classList.remove("hidden");
   $("main").classList.add("hidden");
   $("logout").classList.add("hidden");
-  ["tabs", "today", "coach", "journal"].forEach((id) => $(id).classList.add("hidden"));
+  ["tabs", "today", "meditate", "coach", "journal"].forEach((id) => $(id).classList.add("hidden"));
   renderAuthText();
 }
 
@@ -306,11 +306,12 @@ async function openJournal() {
 let currentTab = "today";
 function showTab(name) {
   currentTab = name;
-  for (const id of ["today", "main", "coach", "journal"]) $(id).classList.toggle("hidden", id !== name);
+  for (const id of ["today", "main", "meditate", "coach", "journal"]) $(id).classList.toggle("hidden", id !== name);
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
   if (name === "journal") openJournal();
   if (name === "coach") loadCoach();
   if (name === "today") loadToday();
+  if (name === "meditate") loadMeditate();
 }
 document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
 
@@ -362,7 +363,19 @@ function renderToday() {
 
   const pb = $("practice-box");
   pb.innerHTML = "";
-  pb.appendChild(practiceEl(d.practice));
+  if (d.meditation && typeof meditationCard === "function") {
+    loadMeditations().then(() => { pb.innerHTML = ""; pb.appendChild(meditationCard(d.meditation)); });
+  } else {
+    pb.appendChild(practiceEl(d.practice));
+  }
+  document.getElementById("med-done-note")?.remove();
+  if (d.day.meditated) {
+    const note = document.createElement("p");
+    note.id = "med-done-note";
+    note.className = "done-note";
+    note.textContent = t("med_done_today");
+    pb.after(note);
+  }
 
   const done = d.day.gratitude?.length;
   $("grat-form").classList.toggle("hidden", Boolean(done));

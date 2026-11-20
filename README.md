@@ -7,6 +7,9 @@ real Upanishad verses, plus one small daily practice.
 - **Seeker ($4.99/month):** unlimited questions (Stripe subscription)
 - **🌅 Today (home screen):** daily affirmation (personal from the Guide, plus one from the library), wisdom of the day,
   today's step with ✅ Done, a short practice, evening gratitude, and a 🔥 streak.
+- **🧘 Meditate:** 23 guided meditations (Ānāpānasati, Vipassana body scan, Mettā, Om, So-Ham, Trāṭaka, Bhrāmarī, Nāḍī śodhana,
+  Yoga Nidrā, Ramana's self-inquiry, Ho'oponopono, box and 4-7-8 breathing…). Player with step-by-step cues, optional voice,
+  breathing circle, and calm sounds generated in the browser (tanpura, Om, bowls, rain, ocean). Sessions + mood saved.
 - **🎯 Coach:** a real conversation. The coach asks questions first, then shares one fitting verse and tailored options;
   you agree one small step + sankalpa, and the next day it asks how it went.
 - **English + Telugu:** switch at the top of every page; Sanskrit verses shown in Telugu script, Telugu meanings, AI answers in Telugu.
@@ -99,6 +102,8 @@ FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:808
 | `public/manifest.webmanifest`, `public/sw.js`, `public/pwa.js` | Lets people install Atma on their phone's home screen |
 | `topics.js` | **Topic map**: ~30 life situations with verses and practices chosen by people. Strong matches limit the AI to these verses; add keywords (EN/TE) or reorder verses here to improve answers. The Stats page counts topics, and `topic_none` shows questions not covered yet |
 | `coach.js` | The Coach conversation: instructions, follow-up and greeting messages (uses `topics.js`, `verses.js`, `practices.js`) |
+| `meditations.js` | Guided meditations library (steps EN + TE, breathing patterns, cautions). Review before launch |
+| `public/music.js`, `public/meditate.js` | Generated meditation sounds (no audio files) and the guided player |
 | `affirmations.js` | **Daily affirmations** library, 119 in 13 life areas (EN + TE), matched to the user's topic. Review before launch |
 | `teachings.js` | **Modern masters' teachings** (Neville Goddard, Osho, Gurdjieff, J. Krishnamurti, José Silva, Eckhart Tolle, Ramana Maharshi, Swami Vivekananda), 47 core ideas summarised in our own words, EN + TE. The AI only chooses; review before launch |
 | `practices.js` | Practices library (traditional + "inspired by" Neville Goddard, Osho, Gurdjieff, J. Krishnamurti, José Silva), English + Telugu. Review before launch |

@@ -8,6 +8,7 @@ import * as coach from "./coach.js";
 import { TEACHINGS, TEACHING_BY_ID } from "./teachings.js";
 import { affirmationFor, TOPIC_TO_AREA, dayNumber } from "./affirmations.js";
 import { PRACTICES } from "./practices.js";
+import { MEDITATIONS, MEDITATION_BY_ID, MEDITATION_TAGS } from "./meditations.js";
 
 const PORT = Number(process.env.PORT || 3000);
 const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
@@ -141,7 +142,11 @@ app.delete("/api/journal/:id", requireUser, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---- Meditations library (public) ----
+app.get("/api/meditations", (_req, res) => res.json({ meditations: MEDITATIONS, tags: MEDITATION_TAGS }));
+
 // ---- Today: daily affirmation, wisdom, step, practice, gratitude, streak ----
+const DAILY_MEDITATIONS = MEDITATIONS.filter((m) => !m.eyesOpen && m.id !== "yoga-nidra" && m.id !== "feeling-it-done");
 const SHORT_PRACTICES = PRACTICES.filter((p) => p.minutes <= 5);
 
 app.get("/api/today", requireUser, async (req, res) => {
@@ -161,6 +166,7 @@ app.get("/api/today", requireUser, async (req, res) => {
     wisdom,
     step: chat?.commitment ? { action: chat.commitment.action } : null,
     practice: SHORT_PRACTICES[n % SHORT_PRACTICES.length],
+    meditation: DAILY_MEDITATIONS[n % DAILY_MEDITATIONS.length],
     day,
     streak,
   });
@@ -176,6 +182,17 @@ app.post("/api/today", requireUser, async (req, res) => {
   } else if (action === "step") {
     await store.updateDay(uid, date, { stepDone: true });
     store.bumpStats({ steps_done: 1 }).catch(() => {});
+  } else if (action === "meditate") {
+    const m = MEDITATION_BY_ID[req.body.id];
+    if (!m) return res.status(400).json({ error: "Unknown meditation" });
+    const minutes = Math.max(1, Math.min(60, Number(req.body.minutes) || m.minutes));
+    await store.addMeditation(uid, date, { id: m.id, minutes });
+    store.bumpStats({ meditations: 1, meditation_minutes: minutes, [`med_${m.id.replace(/-/g, "_")}`]: 1 }).catch(() => {});
+  } else if (action === "mood") {
+    const value = Math.round(Number(req.body.value));
+    if (!(value >= 1 && value <= 5)) return res.status(400).json({ error: "Mood must be 1-5" });
+    await store.updateDay(uid, date, { mood: value });
+    store.bumpStats({ [`mood_${value}`]: 1 }).catch(() => {});
   } else if (action === "gratitude") {
     const items = (Array.isArray(req.body.items) ? req.body.items : [])
       .map((x) => String(x).trim().slice(0, 200)).filter(Boolean).slice(0, 3);

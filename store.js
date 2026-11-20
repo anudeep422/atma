@@ -174,11 +174,14 @@ export async function getDay(uid, date) {
 
 export const updateDay = (uid, date, data) => dayDoc(uid, date).set({ date, ...data }, { merge: true });
 
-/** Days in a row with any practice (affirmation said, step done or gratitude written). */
+export const addMeditation = (uid, date, session) =>
+  dayDoc(uid, date).set({ date, meditated: true, meditations: FieldValue.arrayUnion({ ...session, at: new Date().toISOString() }) }, { merge: true });
+
+/** Days in a row with any practice (affirmation said, step done, meditation or gratitude). */
 export async function getStreak(uid) {
   const from = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10);
   const snap = await users.doc(uid).collection("days").where("date", ">=", from).get();
-  const active = new Set(snap.docs.map((d) => d.data()).filter((d) => d.affirmed || d.stepDone || d.gratitude?.length).map((d) => d.date));
+  const active = new Set(snap.docs.map((d) => d.data()).filter((d) => d.affirmed || d.stepDone || d.meditated || d.gratitude?.length).map((d) => d.date));
   let streak = 0;
   const day = new Date();
   if (!active.has(day.toISOString().slice(0, 10))) day.setUTCDate(day.getUTCDate() - 1); // today not done yet: count up to yesterday
