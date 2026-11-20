@@ -4,7 +4,19 @@
 let MED = null; // { meditations, tags }
 let medFilter = "all";
 
+// Real audio files (public/audio/manifest.json): music tracks and recorded guided meditations.
+let AUDIO = null;
+async function loadAudioManifest() {
+  if (AUDIO) return AUDIO;
+  try { AUDIO = await (await fetch("/audio/manifest.json")).json(); } catch { AUDIO = { music: [], guided: {} }; }
+  AUDIO.music ??= [];
+  AUDIO.guided ??= {};
+  return AUDIO;
+}
+const recordingFor = (m) => AUDIO?.guided?.[m.id]?.[LANG] ?? null;
+
 async function loadMeditations() {
+  loadAudioManifest();
   if (MED) return MED;
   const res = await fetch("/api/meditations");
   MED = await res.json();
@@ -97,6 +109,7 @@ function playerEl() {
       <div class="mp-chips mp-lengths"></div>
       <div class="mp-label mp-l-music"></div>
       <div class="mp-chips mp-music"></div>
+      <label class="mp-rec hidden"><input type="checkbox" checked> <span></span></label>
       <label class="mp-voice"><input type="checkbox"> <span></span></label>
       <p class="mp-voice-note"></p>
       <button class="btn mp-go" type="button" style="width:100%"></button>
@@ -105,6 +118,7 @@ function playerEl() {
       <div class="mp-remaining"></div>
       <div class="breath-wrap"><div class="breath-circle"></div><div class="breath-label"></div></div>
       <p class="mp-cue"></p>
+      <p class="mp-credit"></p>
       <div class="mp-controls">
         <button class="btn ghost mp-pause" type="button"></button>
         <button class="btn ghost mp-end" type="button"></button>
@@ -160,10 +174,11 @@ function openPlayer(m, minutes) {
   });
   const mus = el.querySelector(".mp-music");
   mus.innerHTML = "";
-  AtmaSound.names.forEach((name) => {
+  const tracks = (AUDIO?.music ?? []).map((tr) => ({ name: `file:/audio/${tr.file}`, label: `🎵 ${LANG === "te" && tr.name_te ? tr.name_te : tr.name}` }));
+  [...tracks, ...AtmaSound.names.map((name) => ({ name, label: t(`music_${name}`) }))].forEach(({ name, label }) => {
     const b = document.createElement("button");
     b.type = "button";
-    b.textContent = t(`music_${name}`);
+    b.textContent = label;
     b.classList.toggle("chosen", name === player.music);
     b.onclick = () => {
       player.music = name;
@@ -174,6 +189,11 @@ function openPlayer(m, minutes) {
     };
     mus.appendChild(b);
   });
+  // Recorded guidance, when a recording exists for this meditation in this language
+  const rec = recordingFor(m);
+  el.querySelector(".mp-rec").classList.toggle("hidden", !rec);
+  el.querySelector(".mp-rec span").textContent = t("med_recorded");
+  el.querySelector(".mp-rec input").checked = Boolean(rec);
   show("med-setup");
   el.classList.remove("hidden");
   document.body.classList.add("no-scroll");
@@ -183,6 +203,7 @@ function closePlayer() {
   clearInterval(player.timer);
   player.running = false;
   AtmaSound.stop();
+  AtmaSound.stopVoice();
   speechSynthesis?.cancel?.();
   playerEl().classList.add("hidden");
   document.body.classList.remove("no-scroll");
@@ -222,6 +243,9 @@ function startSession() {
   const el = playerEl();
   player.voice = el.querySelector(".mp-voice input").checked;
   saveVoice(player.voice);
+  const rec = recordingFor(player.m);
+  player.recorded = Boolean(rec) && el.querySelector(".mp-rec input").checked;
+  if (player.recorded) player.voice = false; // the recording replaces the phone voice
   player.schedule = buildSchedule(player.m, player.minutes * 60);
   player.elapsed = 0;
   player.stepIdx = -1;
@@ -235,6 +259,15 @@ function startSession() {
   show("med-run");
   AtmaSound.play(player.music);
   AtmaSound.bell(0.22);
+  const musicTrack = (AUDIO?.music ?? []).find((tr) => player.music === `file:/audio/${tr.file}`);
+  el.querySelector(".mp-credit").textContent = [musicTrack?.credit && `${t("med_music")}: ${musicTrack.credit}`, player.recorded && rec.credit].filter(Boolean).join(" · ");
+  if (player.recorded) {
+    // The recording sets the length; the session ends a few seconds after it finishes.
+    setTimeout(() => AtmaSound.playVoice(`/audio/${rec.file}`, {
+      onDuration: (d) => { if (isFinite(d)) { player.minutes = (d + 8) / 60; player.schedule = buildSchedule(player.m, player.minutes * 60); } },
+      onEnded: () => { player.elapsed = Math.max(player.elapsed, player.minutes * 60 - 6); },
+    }), 2500);
+  }
   let last = performance.now();
   clearInterval(player.timer);
   player.timer = setInterval(() => {
@@ -302,6 +335,7 @@ function togglePause() {
 async function finishSession(early) {
   clearInterval(player.timer);
   player.running = false;
+  AtmaSound.stopVoice();
   AtmaSound.resume();
   AtmaSound.stop();
   speechSynthesis?.cancel?.();

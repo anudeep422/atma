@@ -210,3 +210,5 @@ body.no-scroll { overflow: hidden; }
 .mood-row button { font-size: 30px; background: rgba(255,255,255,.08); border: 2px solid transparent; border-radius: 50%; width: 54px; height: 54px; cursor: pointer; }
 .mood-row button.chosen { border-color: #f0953e; background: rgba(240,149,62,.25); }
 .mp-voice-note { font-size: 12px; color: #cdb89f; margin: -14px 0 18px; }
+.mp-rec { display: flex; gap: 8px; align-items: center; margin: 14px 0 0; font-size: 15px; font-weight: 600; }
+.mp-credit { font-size: 11px; color: #a8957f; margin-top: -10px; }

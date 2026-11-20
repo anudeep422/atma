@@ -209,13 +209,62 @@ const AtmaSound = (() => {
     },
   };
 
+  // ---- Real audio files (music tracks and recorded guidance) ----
+  const elements = new Set();
+
+  function fileNode(url, loop) {
+    const audio = new Audio(url);
+    audio.loop = loop;
+    audio.preload = "auto";
+    const src = ctx.createMediaElementSource(audio);
+    elements.add(audio);
+    return { audio, src };
+  }
+
+  // A music file, looped, with slow fades, through the same reverb/ducking path as generated sounds.
+  function musicFile(url) {
+    const out = ctx.createGain();
+    fadeIn(out, 0.9, 5);
+    out.connect(master);
+    const { audio, src } = fileNode(url, true);
+    src.connect(out);
+    audio.play().catch(() => {});
+    return {
+      stop() {
+        fadeOutAndStop(out, [src], 3.5);
+        setTimeout(() => { audio.pause(); elements.delete(audio); }, 3600);
+      },
+    };
+  }
+
+  let voice = null;
+
   return {
     names: ["tanpura", "om", "bowls", "rain", "ocean", "none"],
-    /** Starts a soundscape (or silence with "none"). */
+    /** Starts a soundscape: a generated one, "none", or "file:<url>" for a real music track. */
     play(name) {
       ensure();
       this.stop();
-      if (scapes[name]) current = scapes[name]();
+      if (name?.startsWith("file:")) current = musicFile(name.slice(5));
+      else if (scapes[name]) current = scapes[name]();
+    },
+    /** Plays a recorded guided meditation (not looped, no reverb); music is lowered underneath. */
+    playVoice(url, { onEnded, onDuration } = {}) {
+      ensure();
+      this.stopVoice();
+      const { audio, src } = fileNode(url, false);
+      const g = ctx.createGain();
+      g.gain.value = 1;
+      src.connect(g).connect(ctx.destination);
+      audio.addEventListener("loadedmetadata", () => onDuration?.(audio.duration));
+      audio.addEventListener("ended", () => { this.duck(false); onEnded?.(); });
+      audio.play().catch(() => {});
+      this.duck(true);
+      voice = audio;
+      return audio;
+    },
+    stopVoice() {
+      if (voice) { voice.pause(); elements.delete(voice); voice = null; this.duck(false); }
     },
     stop() {
       if (current) { current.stop(); current = null; }
@@ -230,7 +279,7 @@ const AtmaSound = (() => {
       master.gain.setValueAtTime(master.gain.value, t);
       master.gain.linearRampToValueAtTime(on ? 0.3 : 0.8, t + (on ? 0.6 : 2.5));
     },
-    pause() { ctx?.suspend(); },
-    resume() { ctx?.resume(); },
+    pause() { ctx?.suspend(); elements.forEach((a) => a.pause()); },
+    resume() { ctx?.resume(); elements.forEach((a) => { if (a.currentTime > 0 && !a.ended) a.play().catch(() => {}); }); },
   };
 })();
