@@ -16,7 +16,7 @@ async function loadAudioManifest() {
 const recordingFor = (m) => AUDIO?.guided?.[m.id]?.[LANG] ?? null;
 
 async function loadMeditations() {
-  loadAudioManifest();
+  await loadAudioManifest();
   if (MED) return MED;
   const res = await fetch("/api/meditations");
   MED = await res.json();
@@ -86,6 +86,12 @@ const DEFAULT_SOUND = {
   witnessing: "rain", "inner-body": "bowls", countdown: "ocean", "feeling-it-done": "rain", hooponopono: "om",
   "box-breathing": "bowls", "breath-478": "ocean",
 };
+// Meditations that should start with a real music track (by track id in manifest.json), when it exists.
+const TRACK_DEFAULT = { "yoga-nidra": "sleep", "breath-478": "sleep", "body-scan": "sleep", "feeling-it-done": "sleep" };
+function defaultSound(m) {
+  const track = (AUDIO?.music ?? []).find((tr) => tr.id === TRACK_DEFAULT[m.id]);
+  return track ? `file:/audio/${track.file}` : DEFAULT_SOUND[m.id] || "bowls";
+}
 const savedSound = (id) => { try { return localStorage.getItem(`medsound:${id}`); } catch { return null; } };
 const saveSound = (id, name) => { try { localStorage.setItem(`medsound:${id}`, name); } catch {} };
 const savedVoice = () => { try { return localStorage.getItem("medvoice") === "on"; } catch { return false; } };
@@ -149,7 +155,7 @@ function openPlayer(m, minutes) {
   const el = playerEl();
   player.m = m;
   player.minutes = minutes ?? m.minutes;
-  player.music = savedSound(m.id) || DEFAULT_SOUND[m.id] || "bowls";
+  player.music = savedSound(m.id) || defaultSound(m);
   el.querySelector(".mp-voice input").checked = savedVoice();
   el.querySelector(".mp-voice-note").textContent = t("med_voice_note");
   el.querySelector(".mp-title").textContent = medName(m);

@@ -1,4 +1,12 @@
 {
-  "music": [],
+  "music": [
+    {
+      "id": "sleep",
+      "name": "Sleep music",
+      "name_te": "నిద్ర సంగీతం",
+      "file": "music/sleep-leberch.mp3",
+      "credit": "\"Sleep\" by leberch, Pixabay"
+    }
+  ],
   "guided": {}
 }
