@@ -47,10 +47,12 @@ const STRINGS = {
     contact_owner: "the app owner",
     footer_links: '<a href="/about.html">About Atma</a> · <a href="/privacy.html">Privacy</a>',
     about_html: `<h1>About Atma</h1>
-<p>Atma brings the timeless wisdom of the Upanishads into everyday life, in Telugu and English.</p>
+<p>Atma brings the timeless wisdom of the Upanishads and the Bhagavad Gita into everyday life, in Telugu and English.</p>
 <p>When you share what is on your heart, Atma's guide picks one or two verses that speak to your situation, explains them in simple words, and suggests one small practice for your day.</p>
 <h2>Real verses, never invented</h2>
-<p>The guide can only choose from a carefully selected library of Upanishad verses. The verse you see (reference, Sanskrit and meaning) is shown exactly from that library. The AI never writes scripture itself.</p>
+<p>The guide can only choose from a carefully selected library of verses from the Upanishads and the Bhagavad Gita. The verse you see (reference, Sanskrit and meaning) is shown exactly from that library. The AI never writes scripture itself.</p>
+<h2>Modern masters</h2>
+<p>Atma also shares ideas from modern teachers such as Neville Goddard, Osho, G. I. Gurdjieff, J. Krishnamurti, José Silva, Eckhart Tolle, Ramana Maharshi and Swami Vivekananda. Their teachings are <b>summarised in our own words</b> for reflection, with credit to each teacher. Atma is <b>not affiliated with or endorsed by</b> these teachers, their estates or their organisations.</p>
 <h2>What Atma is not</h2>
 <p>Atma offers spiritual reflection. It is not a doctor, therapist, lawyer or financial adviser. If you are in crisis, please contact a local helpline (in India: Tele-MANAS <b>14416</b>) or emergency services.</p>
 <h2>Contact</h2>
@@ -187,10 +189,12 @@ const STRINGS = {
     contact_owner: "యాప్ యజమాని",
     footer_links: '<a href="/about.html">ఆత్మ గురించి</a> · <a href="/privacy.html">గోప్యత</a>',
     about_html: `<h1>ఆత్మ గురించి</h1>
-<p>ఉపనిషత్తుల శాశ్వత జ్ఞానాన్ని తెలుగు మరియు ఇంగ్లీష్‌లో మీ రోజువారీ జీవితంలోకి తీసుకువస్తుంది ఆత్మ.</p>
+<p>ఉపనిషత్తులు, భగవద్గీత శాశ్వత జ్ఞానాన్ని తెలుగు మరియు ఇంగ్లీష్‌లో మీ రోజువారీ జీవితంలోకి తీసుకువస్తుంది ఆత్మ.</p>
 <p>మీ మనసులోని మాటను పంచుకున్నప్పుడు, ఆత్మ మార్గదర్శి మీ పరిస్థితికి సరిపోయే ఒకటి లేదా రెండు శ్లోకాలను ఎంచుకుని, సరళమైన మాటల్లో వివరించి, మీ రోజుకు ఒక చిన్న సాధనను సూచిస్తుంది.</p>
 <h2>అసలైన శ్లోకాలు, కల్పితం కాదు</h2>
-<p>మార్గదర్శి జాగ్రత్తగా ఎంపిక చేసిన ఉపనిషత్ శ్లోకాల గ్రంథాలయం నుండి మాత్రమే ఎంచుకోగలదు. మీరు చూసే శ్లోకం (మూలం, సంస్కృతం, అర్థం) ఆ గ్రంథాలయం నుండి యథాతథంగా చూపబడుతుంది. AI స్వయంగా ఎప్పుడూ శ్లోకాలను రాయదు.</p>
+<p>మార్గదర్శి జాగ్రత్తగా ఎంపిక చేసిన ఉపనిషత్తులు, భగవద్గీత శ్లోకాల గ్రంథాలయం నుండి మాత్రమే ఎంచుకోగలదు. మీరు చూసే శ్లోకం (మూలం, సంస్కృతం, అర్థం) ఆ గ్రంథాలయం నుండి యథాతథంగా చూపబడుతుంది. AI స్వయంగా ఎప్పుడూ శ్లోకాలను రాయదు.</p>
+<h2>ఆధునిక గురువులు</h2>
+<p>నెవిల్ గొడ్డార్డ్, ఓషో, గుర్జియెఫ్, జిడ్డు కృష్ణమూర్తి, జోస్ సిల్వా, ఎకార్ట్ టోల్, రమణ మహర్షి, స్వామి వివేకానంద వంటి ఆధునిక గురువుల ఆలోచనలను కూడా ఆత్మ పంచుకుంటుంది. వారి బోధనలు, ప్రతి గురువుకు గౌరవం ఇస్తూ, చింతన కోసం <b>మా మాటల్లో సంక్షిప్తంగా</b> అందించబడ్డాయి. ఆత్మకు ఈ గురువులు, వారి వారసులు లేదా సంస్థలతో <b>ఎలాంటి అనుబంధం లేదు, వారి ఆమోదం లేదు</b>.</p>
 <h2>ఆత్మ ఏది కాదు</h2>
 <p>ఆత్మ ఆధ్యాత్మిక చింతనను అందిస్తుంది. ఇది వైద్యుడు, మానసిక నిపుణుడు, న్యాయవాది లేదా ఆర్థిక సలహాదారు కాదు. మీరు సంక్షోభంలో ఉంటే, దయచేసి స్థానిక హెల్ప్‌లైన్ (భారతదేశంలో: Tele-MANAS <b>14416</b>) లేదా అత్యవసర సేవలను సంప్రదించండి.</p>
 <h2>సంప్రదించండి</h2>
